@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 /* ─── CSS ────────────────────────────────────────────────────── */
 const css = `
@@ -542,7 +542,7 @@ body {
 /* ─── CONSTANTS ────────────────────────────────────────────────── */
 const SINGLE_PRICE    = 599;
 const FAMILY_PACK_PRICE = 5990;
-const RAZORPAY_KEY_ID = 'rzp_test_SlG1HvlDp3i5Fw'; // ← replace with your key
+const RAZORPAY_KEY_ID = "rzp_test_SlG1HvlDp3i5Fw"; // ← replace with your key
 
 const FEATURES = [
   { num:"01", icon:"🦷", title:"Nano Bristle Technology", text:"10,000 micro-filaments per cm² with varying stiffness — hard on plaque, gentle on enamel and gums." },
@@ -625,6 +625,51 @@ function TrackingSection() {
   };
 
   const currentStatus = trackData?.shipment_status || '';
+//   const handlePayment = async () => {
+//   try {
+//     const res = await fetch('/api/create-order', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({
+//         amount: totalAmount * 100
+//       })
+//     });
+
+//     const order = await res.json();
+
+//     console.log("ORDER RESPONSE:", order);
+
+//     if (!order.orderId) {
+//       alert("Order ID missing!");
+//       return;
+//     }
+
+//     const options = {
+//       key: "rzp_test_SlG1HvlDp3i5Fw",
+//       amount: order.amount,
+//       currency: "INR",
+//       order_id: order.orderId,
+//       name: "Dentall",
+//       description: "Test Transaction",
+
+//       handler: function (response) {
+//         console.log("PAYMENT SUCCESS:", response);
+//         alert("Payment Successful!");
+//       },
+
+//       theme: {
+//         color: "#FF5C00"
+//       }
+//     };
+
+//     const rzp = new window.Razorpay(options);
+//     rzp.open();
+
+//   } catch (err) {
+//     console.error(err);
+//     alert("Payment failed to initialize");
+//   }
+// };
 
   return (
     <section className="dn-tracking-section" id="tracking">
@@ -762,6 +807,10 @@ export default function DentallApp() {
   const cartTotal    = cartSubtotal + cartShipping;
   const orderTotal   = packPrice * qty;
 
+  const [leadPopup, setLeadPopup] = useState(false);
+  const [leadForm, setLeadForm]   = useState({ name:'', email:'', phone:'' });
+  const [leadSent, setLeadSent]   = useState(false);
+
   /* ── inject CSS ── */
   useEffect(() => {
     const tag = document.createElement('style');
@@ -769,6 +818,10 @@ export default function DentallApp() {
     document.head.appendChild(tag);
     return () => document.head.removeChild(tag);
   }, []);
+  useEffect(() => {
+  const t = setTimeout(() => setLeadPopup(true), 15000);
+  return () => clearTimeout(t);
+}, []);
 
   /* ── Load Razorpay script once ── */
   useEffect(() => {
@@ -1042,44 +1095,18 @@ export default function DentallApp() {
   };
 
   const mobilePanel = mobilePanelPhase > 0 ? MOBILE_PANELS[mobilePanelPhase] : null;
-  const handlePayment = async () => {
-  try {
-    // 1. Create order from backend
-    const res = await fetch('/api/create-order', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ amount: 50000 }),
-    });
-
-    const order = await res.json();
-
-    console.log("ORDER:", order); // debug
-
-    // 2. Razorpay options
-    const options = {
-      key: "rzp_test_SlG1HvlDp3i5Fw",
-      amount: order.amount,
-      currency: "INR",
-      order_id: order.id,
-      handler: function (response) {
-        console.log("Payment Success:", response);
-        alert("Payment Successful ✅");
-      },
-      theme: {
-        color: "#3399cc",
-      },
-    };
-
-    // 3. Open Razorpay
-    const rzp = new window.Razorpay(options);
-    rzp.open();
-
-  } catch (err) {
-    console.error(err);
-    alert("Payment failed ❌");
-  }
+  const inputStyle = {
+  width: '100%',
+  padding: '.75rem 1rem',
+  border: '1.5px solid #E8D5B0',
+  borderRadius: '8px',
+  fontFamily: 'DM Sans,sans-serif',
+  fontSize: '.9rem',
+  marginBottom: '.8rem',
+  boxSizing: 'border-box',
+  outline: 'none',
+  background: '#fff',
+  color: '#1C0D02',
 };
 
   /* ─── RENDER ─────────────────────────────────────────────────── */
@@ -1620,8 +1647,7 @@ export default function DentallApp() {
 
                 <button
                   className="dn-razorpay-btn"
-                  onClick={handlePayment}
-                  // onClick={handleRazorpayCheckout}
+                  onClick={handleRazorpayCheckout}
                   disabled={payProcessing || cartItems.length===0}>
                   {payProcessing
                     ? '⏳ Opening Razorpay…'
@@ -1653,6 +1679,144 @@ export default function DentallApp() {
           </div>
         </div>
       )}
+      {/* ── Lead Capture Popup ── */}
+      {leadPopup && !leadSent && (
+  <div
+    style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,.6)',
+      zIndex: 9999,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backdropFilter: 'blur(8px)'
+    }}
+    onClick={() => setLeadPopup(false)}
+  >
+    <div
+      style={{
+        background: '#FFFBF5',
+        borderRadius: '16px',
+        width: '100%',
+        maxWidth: '420px',
+        overflow: 'hidden',
+        boxShadow: '0 32px 80px rgba(0,0,0,.3)',
+        margin: '1rem'
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+
+      {/* HEADER */}
+      <div style={{
+        background: 'linear-gradient(135deg,#FF5C00,#7C3AED)',
+        padding: '2rem',
+        textAlign: 'center',
+        position: 'relative'
+      }}>
+        <button
+          onClick={() => setLeadPopup(false)}
+          style={{
+            position: 'absolute',
+            top: '1rem',
+            right: '1rem',
+            background: 'rgba(255,255,255,.2)',
+            border: 'none',
+            color: '#fff',
+            width: '28px',
+            height: '28px',
+            borderRadius: '50%',
+            fontSize: '1rem',
+            cursor: 'pointer'
+          }}
+        >
+          ✕
+        </button>
+
+        <div style={{ fontSize: '2.5rem' }}>🦷</div>
+        <h2 style={{ color: '#fff', margin: '.5rem 0 0', fontFamily: 'Georgia,serif' }}>
+          Get 10% Off!
+        </h2>
+        <p style={{ color: 'rgba(255,255,255,.85)', margin: '.3rem 0 0', fontSize: '.88rem' }}>
+          Subscribe for your exclusive welcome discount
+        </p>
+      </div>
+
+      {/* BODY */}
+      <div style={{ padding: '1.5rem' }}>
+        <input
+          value={leadForm.name}
+          onChange={e => setLeadForm(f => ({ ...f, name: e.target.value }))}
+          placeholder="Your name"
+          style={inputStyle}
+        />
+
+        <input
+          value={leadForm.email}
+          onChange={e => setLeadForm(f => ({ ...f, email: e.target.value }))}
+          placeholder="Email address *"
+          type="email"
+          style={inputStyle}
+        />
+
+        <input
+          value={leadForm.phone}
+          onChange={e => setLeadForm(f => ({ ...f, phone: e.target.value }))}
+          placeholder="Phone (optional)"
+          style={inputStyle}
+        />
+
+        <button
+          onClick={async () => {
+            if (!leadForm.email.includes('@')) {
+              alert('Please enter a valid email');
+              return;
+            }
+
+           await fetch('/api/capture-lead', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(leadForm)
+            });
+
+            setLeadSent(true);
+            setTimeout(() => setLeadPopup(false), 3000);
+          }}
+          style={{
+            width: '100%',
+            background: 'linear-gradient(135deg,#FF5C00,#7C3AED)',
+            color: '#fff',
+            border: 'none',
+            padding: '1rem',
+            borderRadius: '30px',
+            fontWeight: 700,
+            fontSize: '.9rem',
+            cursor: 'pointer',
+            letterSpacing: '.05em'
+          }}
+        >
+          Claim My 10% Off →
+        </button>
+
+        <p style={{ textAlign: 'center', fontSize: '.7rem', color: '#8A6040', marginTop: '.8rem' }}>
+          No spam. Unsubscribe anytime.
+        </p>
+      </div>
+
+    </div>
+  </div>
+)}
+
+      {leadPopup && leadSent && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div style={{background:'#FFFBF5',borderRadius:'16px',padding:'3rem',textAlign:'center',maxWidth:'360px',margin:'1rem'}}>
+            <div style={{fontSize:'3rem'}}>🎉</div>
+            <h2 style={{color:'#FF5C00',fontFamily:'Georgia,serif'}}>You're in!</h2>
+            <p style={{color:'#4A2C10'}}>Check your email for your <strong>10% off code</strong>. Happy brushing!</p>
+          </div>
+        </div>
+      )}
+
     </>
   );
 }

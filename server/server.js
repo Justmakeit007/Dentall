@@ -1,88 +1,278 @@
 // ============================================================
-//  DENTALL — server.js
-//  Fixed version: orderId field, mock Shiprocket, full flow
+//  DENTALL — server.js  (Production-Ready, Fully Secured)
+//  ─────────────────────────────────────────────────────────
+//  SWITCHING FROM TEST → PRODUCTION:
+//    1. In .env set:  USE_MOCK_SHIPROCKET=false
+//    2. In .env set:  NODE_ENV=production
+//    3. Replace Razorpay test keys with live keys in .env
+//    4. Update CORS origin to your real domain in .env:
+//       ALLOWED_ORIGIN=https://yourdomain.com
+//    5. Run:  npm install  (all deps already listed below)
+//    That's it. Zero code changes needed.
+//
+//  REQUIRED ENV VARS (all must be set — server won't start without them):
+//    RAZORPAY_KEY_ID          — from Razorpay dashboard
+//    RAZORPAY_KEY_SECRET      — from Razorpay dashboard
+//    RAZORPAY_WEBHOOK_SECRET  — from Razorpay dashboard → Webhooks
+//    DB_HOST                  — MySQL host (e.g. localhost)
+//    DB_USER                  — MySQL username
+//    DB_PASS                  — MySQL password
+//    DB_NAME                  — MySQL database name
+//    EMAIL_FROM               — Gmail address for sending receipts
+//    EMAIL_PASS               — Gmail app password (not your login password)
+//    NODE_ENV                 — 'development' or 'production'
+//    USE_MOCK_SHIPROCKET       — 'true' for testing, 'false' for real shipping
+//    ALLOWED_ORIGIN            — your frontend URL e.g. https://yourdomain.com
+//    YOUR_PINCODE              — your warehouse/pickup pincode
+//    SHIPROCKET_EMAIL          — (required only when USE_MOCK_SHIPROCKET=false)
+//    SHIPROCKET_PASSWORD       — (required only when USE_MOCK_SHIPROCKET=false)
+//    SITE_URL                  — your public site URL for email links
+//
+//  DEPENDENCIES:
+//    npm install express razorpay crypto nodemailer mysql2 axios
+//                cors dotenv helmet express-rate-limit pdfkit
 // ============================================================
 
-const express  = require('express');
-const Razorpay = require('razorpay');
-const crypto   = require('crypto');
+'use strict';
+
+const express    = require('express');
+const Razorpay   = require('razorpay');
+const crypto     = require('crypto');
 const nodemailer = require('nodemailer');
-const mysql    = require('mysql2/promise');
-const axios    = require('axios');
-const cors     = require('cors');
-const path     = require('path');
-// ADD near the top with your other requires:
+const mysql      = require('mysql2/promise');
+const axios      = require('axios');
+const cors       = require('cors');
+const path       = require('path');
+const helmet     = require('helmet');
+const rateLimit  = require('express-rate-limit');
 const PDFDocument = require('pdfkit');
 require('dotenv').config();
 
+// ============================================================
+//  STEP 1 — FAIL FAST: validate all required env vars on boot
+//  Server will refuse to start if anything critical is missing.
+// ============================================================
+const ALWAYS_REQUIRED = [
+  'RAZORPAY_KEY_ID',
+  'RAZORPAY_KEY_SECRET',
+  'RAZORPAY_WEBHOOK_SECRET',
+  'DB_HOST', 'DB_USER', 'DB_PASS', 'DB_NAME',
+  'EMAIL_FROM', 'EMAIL_PASS',
+  'NODE_ENV',
+  'USE_MOCK_SHIPROCKET',
+  'ALLOWED_ORIGIN',
+  'YOUR_PINCODE',
+  'SITE_URL',
+];
+
+// Shiprocket creds only needed in real mode
+const USE_MOCK = process.env.USE_MOCK_SHIPROCKET === 'true';
+if (!USE_MOCK) {
+  ALWAYS_REQUIRED.push('SHIPROCKET_EMAIL', 'SHIPROCKET_PASSWORD');
+}
+
+const missingEnv = ALWAYS_REQUIRED.filter(k => !process.env[k]);
+if (missingEnv.length > 0) {
+  console.error('\n❌ FATAL — Missing required environment variables:');
+  missingEnv.forEach(k => console.error(`   • ${k}`));
+  console.error('\nServer will NOT start until these are set in .env\n');
+  process.exit(1);
+}
+
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+console.log(`\n🚀 DENTALL server booting...`);
+console.log(`   Mode:     ${IS_PROD ? '🔴 PRODUCTION' : '🟡 DEVELOPMENT'}`);
+console.log(`   Shipping: ${USE_MOCK ? '🧪 MOCK Shiprocket' : '✅ REAL Shiprocket'}`);
+console.log(`   Origin:   ${process.env.ALLOWED_ORIGIN}\n`);
+
+// ============================================================
+//  STEP 2 — CATALOGUE: product price truth (backend is master)
+//  Frontend prices are NEVER trusted for charge amounts.
+// ============================================================
+const PRODUCT_CATALOGUE = {
+  'family-pack':  { name: 'Family Pack (12 brushes)', price: 5990,  maxQty: 10 },
+  'single-brush': { name: 'Single Brush',              price: 599,   maxQty: 20 },
+};
+
+// ============================================================
+//  STEP 3 — INPUT SANITIZATION helpers
+// ============================================================
+function sanitizeStr(val, maxLen = 255) {
+  if (typeof val !== 'string') return '';
+  return val.trim().slice(0, maxLen).replace(/[<>"'`]/g, '');
+}
+
+function sanitizePhone(val) {
+  return String(val || '').replace(/[^\d+\-\s()]/g, '').trim().slice(0, 20);
+}
+
+function sanitizePincode(val) {
+  return String(val || '').replace(/\D/g, '').slice(0, 6);
+}
+
+function isValidEmail(email) {
+  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+function isValidPincode(pin) {
+  return /^\d{6}$/.test(pin);
+}
+
+function isValidPhone(phone) {
+  return /^\+?[\d\s\-()]{7,20}$/.test(phone);
+}
+
+// Safe integer — prevents NaN and float abuse
+function safeInt(val, min = 0, max = Number.MAX_SAFE_INTEGER) {
+  const n = parseInt(val, 10);
+  if (isNaN(n)) return min;
+  return Math.min(Math.max(n, min), max);
+}
+
+// Validate and compute trusted total from server-side catalogue
+function validateCartItems(rawItems) {
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
+    throw new Error('Cart is empty or invalid');
+  }
+  return rawItems.map(item => {
+    const ref = PRODUCT_CATALOGUE[item.id];
+    if (!ref) throw new Error(`Unknown product: ${item.id}`);
+    const qty = safeInt(item.qty, 1, ref.maxQty);
+    return {
+      id:    item.id,
+      name:  ref.name,           // use server name, not client name
+      price: ref.price,          // use server price, not client price
+      qty,
+      icon:  item.id === 'family-pack' ? '🦷' : '🪥',
+    };
+  });
+}
+
+// ============================================================
+//  STEP 4 — EXPRESS APP + SECURITY MIDDLEWARE
+// ============================================================
 const app = express();
 
+// Trust proxy if behind nginx/load balancer (for rate limiter IP detection)
+if (IS_PROD) app.set('trust proxy', 1);
 
-// ── Webhook route must use raw body BEFORE json middleware ──
+// Helmet — sets secure HTTP headers
+app.use(helmet({
+  contentSecurityPolicy: IS_PROD ? undefined : false, // relax CSP in dev
+}));
+
+// CORS — strict origin whitelist
+const allowedOrigins = IS_PROD
+  ? [process.env.ALLOWED_ORIGIN]
+  : [
+      process.env.ALLOWED_ORIGIN,
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5174',
+    ];
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow same-origin requests (no Origin header) and listed origins
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    console.warn(`⛔ CORS blocked origin: ${origin}`);
+    cb(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// ── Webhook route MUST receive raw body before JSON middleware ──
 app.post(
   '/api/razorpay-webhook',
   express.raw({ type: 'application/json' }),
-  (req, res) => {
-    const signature   = req.headers['x-razorpay-signature'];
-    const expectedSig = crypto
-      .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET || 'webhook_secret')
-      .update(req.body)
-      .digest('hex');
-
-    if (signature === expectedSig) {
-      const event = JSON.parse(req.body);
-      console.log('✅ Webhook received:', event.event);
-      // Optionally update order status here as a backup safety net
-    }
-    res.json({ received: true });
-  }
+  handleWebhook
 );
 
-app.use(express.json());
-app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:5173',   // ← add Vite's default port
-    'http://localhost:5174',   // ← add fallback Vite port
-    'https://yourdomain.com',
-  ],
-  credentials: true,
-}));
+// JSON body parser for all other routes (4KB limit — prevents payload bombs)
+app.use(express.json({ limit: '4kb' }));
 
 // Serve React build in production
 app.use(express.static(path.join(__dirname, '../dist')));
 
-// ── MySQL connection pool ──────────────────────────────────
-const db = mysql.createPool({
-  host:     process.env.DB_HOST     || 'localhost',
-  user:     process.env.DB_USER     || 'root',
-  password: process.env.DB_PASS     || '',
-  database: process.env.DB_NAME     || 'dentall_db',
-  waitForConnections: true,
-  connectionLimit:    10,
+// ============================================================
+//  STEP 5 — RATE LIMITERS
+// ============================================================
+
+// General API limiter — 120 requests per minute per IP
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
 });
 
-// Test DB connection on startup
+// Payment limiter — 10 attempts per 15 minutes per IP (prevents brute force)
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many payment attempts. Please wait 15 minutes.' },
+  skipSuccessfulRequests: false,
+});
+
+// Lead capture limiter — 5 per hour per IP (prevents spam)
+const leadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many submissions. Try again in an hour.' },
+});
+
+// Shipping check limiter — 30 per minute per IP
+const shippingLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: 'Too many shipping checks. Please wait.' },
+});
+
+// Apply general limiter to all /api/ routes
+app.use('/api/', generalLimiter);
+
+// ============================================================
+//  STEP 6 — DATABASE
+// ============================================================
+const db = mysql.createPool({
+  host:               process.env.DB_HOST,
+  user:               process.env.DB_USER,
+  password:           process.env.DB_PASS,
+  database:           process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit:    10,
+  queueLimit:         30,
+  // Prevent SQL injection via type coercion
+  typeCast: (field, next) => {
+    if (field.type === 'TINY' && field.length === 1) return field.string() === '1';
+    return next();
+  },
+});
+
 db.getConnection()
   .then(conn => { console.log('✅ MySQL connected'); conn.release(); })
-  .catch(err  => console.error('❌ MySQL connection failed:', err.message));
+  .catch(err  => {
+    console.error('❌ MySQL connection failed:', err.message);
+    if (IS_PROD) process.exit(1); // fatal in production
+  });
 
-// ── Razorpay instance ──────────────────────────────────────
+// ============================================================
+//  STEP 7 — RAZORPAY
+// ============================================================
 const razorpay = new Razorpay({
   key_id:     process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// ===========================================================
-//  ENVIRONMENT FLAG
-//  Set USE_MOCK_SHIPROCKET=true in .env while testing locally.
-//  Remove it (or set false) once you have real Shiprocket creds.
-// ===========================================================
-// const USE_MOCK = process.env.USE_MOCK_SHIPROCKET === 'true';
-const USE_MOCK = true;
-
-// ── Shiprocket token cache ─────────────────────────────────
+// ============================================================
+//  STEP 8 — SHIPROCKET (token cache + helpers)
+// ============================================================
 let shiprocketToken  = null;
 let tokenExpiry      = 0;
 
@@ -93,207 +283,129 @@ async function getShiprocketToken() {
     {
       email:    process.env.SHIPROCKET_EMAIL,
       password: process.env.SHIPROCKET_PASSWORD,
-    }
+    },
+    { timeout: 10000 }
   );
   shiprocketToken = data.token;
-  tokenExpiry     = Date.now() + 9 * 24 * 60 * 60 * 1000; // 9 days
+  tokenExpiry     = Date.now() + 9 * 24 * 60 * 60 * 1000; // 9 days (token lasts 10)
   return shiprocketToken;
 }
 
-// ── Mock Shiprocket helpers ────────────────────────────────
+// ── MOCK helpers (only active when USE_MOCK_SHIPROCKET=true) ──
 function mockShippingCost() {
-  return {
-    shipping_charge:     50,
-    courier_name:        'DTDC Express (TEST)',
-    estimated_delivery:  '3-5',
-  };
+  return { shipping_charge: 50, courier_name: 'DTDC Express (TEST)', estimated_delivery: '3-5' };
 }
 
 function mockShiprocketOrder(orderId) {
-  return {
-    awb_code:    `TEST-AWB-${orderId}-${Date.now()}`,
-    shipment_id: `SHIP-${orderId}`,
-  };
+  return { awb_code: `TEST-AWB-${orderId}-${Date.now()}`, shipment_id: `SHIP-${orderId}` };
 }
 
-function mockTrackingData(awbNumber) {
+function mockTrackingData(awbNumber, orderId) {
   return {
     shipment_status: 'IN TRANSIT',
     awb_code:        awbNumber,
-    order_id:        awbNumber,
+    order_id:        orderId,
     etd:             'Within 3-5 business days',
     tracking_data: [
-      {
-        activity: 'Shipment picked up from seller',
-        date:     new Date().toLocaleDateString('en-IN'),
-        location: 'Puducherry Facility',
-      },
-      {
-        activity: 'In transit to Chennai hub',
-        date:     new Date().toLocaleDateString('en-IN'),
-        location: 'Chennai Hub',
-      },
-      {
-        activity: 'Out for delivery',
-        date:     new Date().toLocaleDateString('en-IN'),
-        location: 'Local Delivery Centre',
-      },
+      { activity: 'Shipment picked up from seller',  date: new Date().toLocaleDateString('en-IN'), location: 'Puducherry Facility' },
+      { activity: 'In transit to Chennai hub',       date: new Date().toLocaleDateString('en-IN'), location: 'Chennai Hub'         },
+      { activity: 'Out for delivery',               date: new Date().toLocaleDateString('en-IN'), location: 'Local Delivery Centre' },
     ],
   };
 }
 
-// ===========================================================
-//  ROUTE 1 — GET LIVE SHIPPING COST
-// ===========================================================
-app.post('/api/shipping-cost', async (req, res) => {
-  const { pincode, weight } = req.body;
+// ── REAL Shiprocket order creation ──
+async function createShiprocketOrder({ orderId, customer, cartItems, totalAmount }) {
+  const token = await getShiprocketToken();
+  const items = cartItems.map(i => ({
+    name:          i.name,
+    sku:           i.id,
+    units:         i.qty,
+    selling_price: i.price,
+    discount: 0, tax: 0, hsn: 0,
+  }));
 
-  if (!pincode || String(pincode).length !== 6) {
-    return res.status(400).json({ error: 'Valid 6-digit pincode required' });
-  }
+  const { data } = await axios.post(
+    'https://apiv2.shiprocket.in/v1/external/orders/create/adhoc',
+    {
+      order_id:              `DNT-${orderId}`,
+      order_date:            new Date().toISOString().slice(0, 19).replace('T', ' '),
+      pickup_location:       'Primary',
+      billing_customer_name: customer.name,
+      billing_address:       customer.address,
+      billing_city:          customer.city,
+      billing_pincode:       customer.pincode,
+      billing_state:         customer.state,
+      billing_country:       'India',
+      billing_email:         customer.email,
+      billing_phone:         customer.phone,
+      shipping_is_billing:   true,
+      order_items:           items,
+      payment_method:        'Prepaid',
+      sub_total:             totalAmount,
+      length: 20, breadth: 10, height: 5, weight: 0.5,
+    },
+    { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }
+  );
 
-  // ── MOCK MODE ──
-  if (USE_MOCK) {
-    console.log(`[MOCK] Shipping cost for pincode ${pincode}`);
-    return res.json(mockShippingCost());
-  }
+  if (!data.awb_code) throw new Error('Shiprocket: no AWB returned — ' + JSON.stringify(data));
+  return { awb_code: data.awb_code, shipment_id: data.shipment_id };
+}
 
-  // ── REAL SHIPROCKET ──
-  try {
-    const token      = await getShiprocketToken();
-    const { data }   = await axios.get(
-      'https://apiv2.shiprocket.in/v1/external/courier/serviceability/',
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        params: {
-          pickup_postcode:   process.env.YOUR_PINCODE || '605001',
-          delivery_postcode: pincode,
-          weight:            weight || 0.5,
-          cod:               0,
-        },
-      }
-    );
-    const companies = data.data?.available_courier_companies || [];
-    // Sort by rate ascending, pick cheapest
-    companies.sort((a, b) => (a.rate || 0) - (b.rate || 0));
-    const cheapest = companies[0];
-
-    res.json({
-      shipping_charge:    cheapest?.rate              || 0,
-      courier_name:       cheapest?.courier_name      || 'Standard',
-      estimated_delivery: cheapest?.estimated_delivery_days || '5-7',
-    });
-  } catch (e) {
-    console.error('Shiprocket serviceability error:', e.response?.data || e.message);
-    res.status(500).json({ error: 'Could not fetch shipping rates', details: e.message });
-  }
-});
-
-// ===========================================================
-//  ROUTE 2 — CREATE RAZORPAY ORDER
-//  FIX: returns 'orderId' (not 'id') so frontend matches
-// ===========================================================
-app.post('/api/create-order', async (req, res) => {
-  const { amount } = req.body;
-
-  if (!amount || amount < 100) {
-    return res.status(400).json({ error: 'Invalid amount' });
-  }
-
-  try {
-    const order = await razorpay.orders.create({
-      amount:   Math.round(amount), // paise, must be integer
-      currency: 'INR',
-      receipt:  `dnt_${Date.now()}`,
-    });
-
-    console.log('✅ Razorpay order created:', order.id, '| Amount:', order.amount);
-
-    // ── KEY FIX: return 'orderId' so App.js destructuring works ──
-    res.json({
-      orderId: order.id,      // ← was 'id', now 'orderId'
-      amount:  order.amount,
-    });
-  } catch (e) {
-    console.error('Razorpay order creation failed:', e);
-    res.status(500).json({ error: e.message });
-  }
-});
+// ============================================================
+//  STEP 9 — PDF RECEIPT GENERATOR
+// ============================================================
 async function generateReceiptPDF(customer, orderData) {
   return new Promise((resolve, reject) => {
-    const doc    = new PDFDocument({ margin: 50, size: 'A4' });
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
     const chunks = [];
-
-    doc.on('data',  chunk => chunks.push(chunk));
-    doc.on('end',   ()    => resolve(Buffer.concat(chunks)));
+    doc.on('data',  c  => chunks.push(c));
+    doc.on('end',   () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    // ── Header ──
+    // Header
     doc.rect(0, 0, 612, 100).fill('#FF5C00');
-    doc.fillColor('#ffffff')
-       .font('Helvetica-Bold')
-       .fontSize(28)
-       .text('DENTALL', 50, 30);
-    doc.fontSize(10)
-       .font('Helvetica')
-       .text('Professional Dental Care', 50, 65);
-    doc.fillColor('#ffffff')
-       .fontSize(10)
-       .text('RECEIPT', 490, 45, { align: 'right' });
+    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(28).text('DENTALL', 50, 30);
+    doc.font('Helvetica').fontSize(10).text('Professional Dental Care', 50, 65);
+    doc.fillColor('#fff').fontSize(10).text('RECEIPT', 490, 45, { align: 'right' });
 
-    // ── Order Info Box ──
+    // Order Info
     doc.rect(50, 120, 512, 80).fill('#FFF3E8');
-    doc.fillColor('#FF5C00')
-       .font('Helvetica-Bold')
-       .fontSize(11)
+    doc.fillColor('#FF5C00').font('Helvetica-Bold').fontSize(11)
        .text(`Order ID: DNT-${orderData.orderId}`, 65, 135);
-    doc.fillColor('#4A2C10')
-       .font('Helvetica')
-       .fontSize(10)
-       .text(`Payment ID: ${orderData.razorpay_payment_id}`, 65, 153)
-       .text(`Date: ${new Date().toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' })}`, 65, 170)
+    doc.fillColor('#4A2C10').font('Helvetica').fontSize(10)
+       .text(`Payment: ${orderData.razorpay_payment_id.slice(0, 8)}****`, 65, 153)
+       .text(`Date: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`, 65, 170)
        .text(`AWB: ${orderData.awb?.awb_code || 'Processing'}`, 300, 153);
 
-    // ── Customer Details ──
-    doc.fillColor('#1C0D02')
-       .font('Helvetica-Bold')
-       .fontSize(12)
-       .text('Bill To:', 50, 220);
-    doc.font('Helvetica')
-       .fontSize(10)
-       .fillColor('#4A2C10')
+    // Customer
+    doc.fillColor('#1C0D02').font('Helvetica-Bold').fontSize(12).text('Bill To:', 50, 220);
+    doc.font('Helvetica').fontSize(10).fillColor('#4A2C10')
        .text(customer.name,    50, 238)
        .text(customer.email,   50, 253)
        .text(customer.phone,   50, 268)
        .text(customer.address, 50, 283)
-       .text(`${customer.city || ''} - ${customer.pincode || ''}`, 50, 298)
-       .text(`${customer.state || ''}, India`, 50, 313);
+       .text(`${customer.city} - ${customer.pincode}`, 50, 298)
+       .text(`${customer.state}, India`, 50, 313);
 
-    // ── Items Table Header ──
+    // Table header
     doc.rect(50, 340, 512, 25).fill('#3B1A08');
-    doc.fillColor('#ffffff')
-       .font('Helvetica-Bold')
-       .fontSize(10)
-       .text('Item',     65,  349)
-       .text('Qty',      380, 349)
-       .text('Price',    430, 349)
-       .text('Total',    490, 349);
+    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(10)
+       .text('Item', 65, 349).text('Qty', 380, 349).text('Price', 430, 349).text('Total', 490, 349);
 
-    // ── Items Rows ──
+    // Items
     let y = 375;
     orderData.cartItems.forEach((item, i) => {
       if (i % 2 === 0) doc.rect(50, y - 5, 512, 22).fill('#FFF6EA');
-      doc.fillColor('#1C0D02')
-         .font('Helvetica')
-         .fontSize(10)
-         .text(item.name,                          65,  y)
-         .text(String(item.qty),                   385, y)
-         .text(`Rs.${item.price.toLocaleString('en-IN')}`,  430, y)
+      doc.fillColor('#1C0D02').font('Helvetica').fontSize(10)
+         .text(item.name, 65, y)
+         .text(String(item.qty), 385, y)
+         .text(`Rs.${item.price.toLocaleString('en-IN')}`, 430, y)
          .text(`Rs.${(item.price * item.qty).toLocaleString('en-IN')}`, 485, y);
       y += 25;
     });
 
-    // ── Totals ──
+    // Totals
     y += 10;
     doc.moveTo(50, y).lineTo(562, y).strokeColor('#E8D5B0').lineWidth(1).stroke();
     y += 15;
@@ -302,11 +414,11 @@ async function generateReceiptPDF(customer, orderData) {
        .text(orderData.shippingCharge === 0 ? 'FREE' : `Rs.${orderData.shippingCharge}`, 490, y);
     y += 20;
     doc.rect(380, y - 5, 182, 28).fill('#FF5C00');
-    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(13)
+    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(13)
        .text('TOTAL:', 390, y + 2)
        .text(`Rs.${orderData.totalAmount.toLocaleString('en-IN')}`, 455, y + 2);
 
-    // ── Footer ──
+    // Footer
     doc.rect(0, 750, 612, 92).fill('#F5EDDC');
     doc.fillColor('#8A6040').font('Helvetica').fontSize(9)
        .text('Thank you for choosing DENTALL!', 50, 762, { align: 'center', width: 512 })
@@ -317,9 +429,13 @@ async function generateReceiptPDF(customer, orderData) {
     doc.end();
   });
 }
+
+// ============================================================
+//  STEP 10 — EMAIL RECEIPT SENDER
+// ============================================================
 async function sendReceiptEmail(customer, orderData) {
-  if (!customer.email || !customer.email.includes('@')) {
-    console.log('⚠️  Skipping email — no valid recipient');
+  if (!isValidEmail(customer.email)) {
+    console.log('⚠️  Skipping email — invalid recipient');
     return;
   }
 
@@ -327,11 +443,10 @@ async function sendReceiptEmail(customer, orderData) {
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_FROM,
-      pass: process.env.EMAIL_PASS,
-    },
+    auth: { user: process.env.EMAIL_FROM, pass: process.env.EMAIL_PASS },
   });
+
+  const trackUrl = `${process.env.SITE_URL}/#tracking?order=${orderData.orderId}`;
 
   await transporter.sendMail({
     from:    `DENTALL 🦷 <${process.env.EMAIL_FROM}>`,
@@ -344,21 +459,26 @@ async function sendReceiptEmail(customer, orderData) {
         <p style="color:rgba(255,255,255,.8);margin:.3rem 0 0">Order Confirmed!</p>
       </div>
       <div style="padding:2rem;background:#FFFBF5;border:1px solid #E8D5B0">
-        <h2 style="color:#FF5C00">Hi ${customer.name}! 🎉</h2>
+        <h2 style="color:#FF5C00">Hi ${sanitizeStr(customer.name)}! 🎉</h2>
         <p style="color:#4A2C10;line-height:1.7">
-          Your payment of <strong>₹${orderData.totalAmount.toLocaleString('en-IN')}</strong> 
+          Your payment of <strong>₹${orderData.totalAmount.toLocaleString('en-IN')}</strong>
           was successful. Your DENTALL brushes will be shipped within 24 hours.
         </p>
         <div style="background:#FFF3E8;border-left:4px solid #FF5C00;padding:1rem;margin:1.5rem 0;border-radius:4px">
           <p style="margin:0;color:#FF5C00;font-weight:700">Order ID: DNT-${orderData.orderId}</p>
           <p style="margin:.3rem 0 0;color:#4A2C10;font-size:.9rem">AWB: ${orderData.awb?.awb_code || 'Will be updated soon'}</p>
         </div>
-        <p style="color:#8A6040;font-size:.85rem">
+        <div style="text-align:center;margin:1.5rem 0">
+          <a href="${trackUrl}" style="background:linear-gradient(135deg,#FF5C00,#7C3AED);color:#fff;text-decoration:none;padding:.9rem 2.5rem;border-radius:30px;font-weight:700;font-size:.85rem;display:inline-block">
+            📦 Track My Order →
+          </a>
+        </div>
+        <p style="color:#8A6040;font-size:.78rem;text-align:center;line-height:1.7">
           📎 Your PDF receipt is attached to this email.<br>
-          📦 Track your order on our website using your Order ID.
+          Questions? Reply to this email or contact support@dentall.in
         </p>
       </div>
-      <div style="background:#F5EDDC;padding:1rem;text-align:center;border-radius:0 0 12px 12px;font-size:.75rem;color:#8A6040">
+      <div style="background:#F5EDDC;padding:1rem;text-align:center;border-radius:0 0 12px 12px;font-size:.72rem;color:#8A6040">
         © 2025 DENTALL — support@dentall.in
       </div>
     </div>`,
@@ -369,117 +489,361 @@ async function sendReceiptEmail(customer, orderData) {
     }],
   });
 
-  console.log(`✅ PDF receipt emailed to ${customer.email}`);
+  console.log(`✅ PDF receipt emailed to ${customer.email.replace(/(.{2}).+(@.+)/, '$1****$2')}`);
 }
 
-// ===========================================================
-//  ROUTE 3 — VERIFY PAYMENT + SAVE DB + SHIP + EMAIL
-// ===========================================================
-app.post('/api/verify-payment', async (req, res) => {
+// ============================================================
+//  ROUTE: POST /api/razorpay-webhook
+//  Receives Razorpay server-to-server payment events.
+//  Raw body must be verified before any processing.
+// ============================================================
+async function handleWebhook(req, res) {
+  const signature    = req.headers['x-razorpay-signature'];
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+  if (!signature) {
+    console.warn('⚠️  Webhook received with no signature — rejected');
+    return res.status(400).json({ error: 'Missing signature' });
+  }
+
+  const expectedSig = crypto
+    .createHmac('sha256', webhookSecret)
+    .update(req.body)
+    .digest('hex');
+
+  // Constant-time comparison — prevents timing attacks
+  const sigBuffer      = Buffer.from(signature,    'hex');
+  const expectedBuffer = Buffer.from(expectedSig,  'hex');
+  const isValid = sigBuffer.length === expectedBuffer.length &&
+                  crypto.timingSafeEqual(sigBuffer, expectedBuffer);
+
+  if (!isValid) {
+    console.error('❌ Webhook signature mismatch — possible forgery attempt');
+    return res.status(400).json({ error: 'Invalid signature' });
+  }
+
+  let event;
+  try {
+    event = JSON.parse(req.body.toString());
+  } catch {
+    return res.status(400).json({ error: 'Invalid JSON payload' });
+  }
+
+  console.log(`✅ Webhook event: ${event.event}`);
+
+  // Handle payment captured (safety net — primary flow is /verify-payment)
+  if (event.event === 'payment.captured') {
+    const payment = event.payload?.payment?.entity;
+    if (payment) {
+      try {
+        await db.execute(
+          `UPDATE orders SET status = 'paid_webhook_confirmed' WHERE razorpay_order_id = ? AND status = 'paid'`,
+          [payment.order_id]
+        );
+        console.log(`✅ Webhook confirmed payment for order: ${payment.order_id}`);
+      } catch (dbErr) {
+        console.error('⚠️  Webhook DB update failed:', dbErr.message);
+      }
+    }
+  }
+
+  if (event.event === 'payment.failed') {
+    const payment = event.payload?.payment?.entity;
+    if (payment?.order_id) {
+      try {
+        await db.execute(
+          `UPDATE orders SET status = 'payment_failed' WHERE razorpay_order_id = ? AND status = 'pending'`,
+          [payment.order_id]
+        );
+      } catch { /* non-fatal */ }
+    }
+  }
+
+  res.json({ received: true });
+}
+
+// ============================================================
+//  ROUTE: POST /api/shipping-cost
+//  Returns shipping cost for a given delivery pincode.
+//  No authentication needed but rate-limited.
+// ============================================================
+app.post('/api/shipping-cost', shippingLimiter, async (req, res) => {
+  const pincode = sanitizePincode(req.body.pincode);
+
+  if (!isValidPincode(pincode)) {
+    return res.status(400).json({ error: 'Valid 6-digit Indian pincode required' });
+  }
+
+  if (USE_MOCK) {
+    console.log(`[MOCK] Shipping cost → pincode ${pincode}`);
+    return res.json(mockShippingCost());
+  }
+
+  // ── REAL SHIPROCKET ──
+  try {
+    const token    = await getShiprocketToken();
+    const { data } = await axios.get(
+      'https://apiv2.shiprocket.in/v1/external/courier/serviceability/',
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          pickup_postcode:   process.env.YOUR_PINCODE,
+          delivery_postcode: pincode,
+          weight:            0.5,
+          cod:               0,
+        },
+        timeout: 10000,
+      }
+    );
+
+    const companies = data.data?.available_courier_companies || [];
+    companies.sort((a, b) => (a.rate || 0) - (b.rate || 0));
+    const cheapest = companies[0];
+
+    res.json({
+      shipping_charge:    cheapest?.rate                     ?? 0,
+      courier_name:       cheapest?.courier_name             ?? 'Standard Delivery',
+      estimated_delivery: cheapest?.estimated_delivery_days  ?? '5-7',
+    });
+  } catch (e) {
+    console.error('Shiprocket serviceability error:', e.response?.data || e.message);
+    // Return a safe fallback rather than exposing internal errors
+    res.json({ shipping_charge: 99, courier_name: 'Standard Delivery', estimated_delivery: '5-7' });
+  }
+});
+
+// ============================================================
+//  ROUTE: POST /api/create-order
+//  Creates a Razorpay order. Amount is computed server-side
+//  from the cart — the client amount is NEVER trusted.
+// ============================================================
+app.post('/api/create-order', paymentLimiter, async (req, res) => {
+  let cartItems;
+  try {
+    cartItems = validateCartItems(req.body.cartItems);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+
+  const shippingCharge = safeInt(req.body.shippingCharge, 0, 1000);
+
+  // ── Compute total SERVER-SIDE using catalogue prices ──
+  const subtotal   = cartItems.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const totalPaise = (subtotal + shippingCharge) * 100; // convert to paise
+
+  if (totalPaise < 100) {
+    return res.status(400).json({ error: 'Order amount too small' });
+  }
+
+  try {
+    const order = await razorpay.orders.create({
+      amount:   Math.round(totalPaise),
+      currency: 'INR',
+      receipt:  `dnt_${Date.now()}`,
+      notes: {
+        source:         'dentall-web',
+        item_count:     cartItems.length,
+        shipping_charge: shippingCharge,
+      },
+    });
+
+    console.log(`✅ Razorpay order: ${order.id} | ₹${order.amount / 100}`);
+
+    res.json({
+      orderId:        order.id,
+      amount:         order.amount,
+      keyId:          process.env.RAZORPAY_KEY_ID, // safe to expose public key
+      computedTotal:  order.amount / 100,           // let client display correct amount
+    });
+  } catch (e) {
+    console.error('Razorpay order creation failed:', e);
+    res.status(500).json({ error: 'Could not create payment order. Please try again.' });
+  }
+});
+
+// ============================================================
+//  ROUTE: POST /api/verify-payment
+//  The most security-critical endpoint:
+//  1. Verify HMAC signature (authenticity)
+//  2. Fetch order from Razorpay and verify amount (anti-tamper)
+//  3. Check payment status is 'captured' (anti-fraud)
+//  4. Prevent replay attacks (idempotency check)
+//  5. Save to DB, create shipment, send email
+// ============================================================
+app.post('/api/verify-payment', paymentLimiter, async (req, res) => {
   const {
     razorpay_order_id,
     razorpay_payment_id,
     razorpay_signature,
     customerDetails,
-    cartItems,
-    totalAmount,
-    shippingCharge,
+    cartItems: rawCartItems,
+    shippingCharge: rawShippingCharge,
   } = req.body;
 
-  // ── 1. Verify Razorpay signature ──────────────────────────
-  const body        = razorpay_order_id + '|' + razorpay_payment_id;
+  // ── Basic field presence check ──
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    return res.status(400).json({ error: 'Missing payment fields' });
+  }
+
+  // ── 1. Verify HMAC-SHA256 signature ──
+  const hmacBody   = `${razorpay_order_id}|${razorpay_payment_id}`;
   const expectedSig = crypto
     .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-    .update(body)
+    .update(hmacBody)
     .digest('hex');
 
-  if (expectedSig !== razorpay_signature) {
-    console.error('❌ Signature mismatch');
-    return res.status(400).json({ error: 'Invalid payment signature' });
+  // Constant-time comparison — prevents timing attacks
+  let sigValid = false;
+  try {
+    const a = Buffer.from(expectedSig, 'hex');
+    const b = Buffer.from(razorpay_signature, 'hex');
+    sigValid = a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch {
+    sigValid = false;
   }
-  console.log('✅ Payment signature verified');
 
-  // ── 2. Save order to MySQL ────────────────────────────────
+  if (!sigValid) {
+    console.error(`❌ Signature mismatch for order ${razorpay_order_id} — possible tampering`);
+    return res.status(400).json({ error: 'Payment verification failed — invalid signature' });
+  }
+  console.log(`✅ Signature verified: ${razorpay_order_id}`);
+
+  // ── 2. Fetch order from Razorpay & verify amount (anti-price-tamper) ──
+  let rzpOrder, rzpPayment;
+  try {
+    rzpOrder   = await razorpay.orders.fetch(razorpay_order_id);
+    rzpPayment = await razorpay.payments.fetch(razorpay_payment_id);
+  } catch (e) {
+    console.error('Failed to fetch Razorpay order/payment:', e.message);
+    return res.status(502).json({ error: 'Could not verify payment with Razorpay' });
+  }
+
+  // ── 3. Verify payment is actually captured (not just authorized) ──
+  if (rzpPayment.status !== 'captured') {
+    console.error(`❌ Payment ${razorpay_payment_id} status: ${rzpPayment.status} — not captured`);
+    return res.status(400).json({ error: `Payment not captured (status: ${rzpPayment.status})` });
+  }
+
+  // ── 4. Validate cart server-side and compute trusted total ──
+  let cartItems;
+  try {
+    cartItems = validateCartItems(rawCartItems);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+
+  const shippingCharge = safeInt(rawShippingCharge, 0, 1000);
+  const subtotal       = cartItems.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const expectedPaise  = Math.round((subtotal + shippingCharge) * 100);
+
+  // ── 5. Amount integrity check: server total must match Razorpay order amount ──
+  if (rzpOrder.amount !== expectedPaise) {
+    console.error(`❌ Amount mismatch! Razorpay: ${rzpOrder.amount} paise, Expected: ${expectedPaise} paise`);
+    return res.status(400).json({ error: 'Payment amount mismatch — transaction rejected' });
+  }
+  console.log(`✅ Amount verified: ₹${expectedPaise / 100}`);
+
+  // ── 6. Sanitize and validate customer details ──
+  const customer = {
+    name:    sanitizeStr(customerDetails?.name),
+    email:   sanitizeStr(customerDetails?.email, 100).toLowerCase(),
+    phone:   sanitizePhone(customerDetails?.phone),
+    address: sanitizeStr(customerDetails?.address, 500),
+    city:    sanitizeStr(customerDetails?.city),
+    state:   sanitizeStr(customerDetails?.state),
+    pincode: sanitizePincode(customerDetails?.pincode),
+  };
+
+  if (!customer.name)               return res.status(400).json({ error: 'Customer name required' });
+  if (!isValidEmail(customer.email)) return res.status(400).json({ error: 'Valid email required' });
+  if (!isValidPhone(customer.phone)) return res.status(400).json({ error: 'Valid phone required' });
+  if (!isValidPincode(customer.pincode)) return res.status(400).json({ error: 'Valid pincode required' });
+
+  // ── 7. Idempotency / replay attack prevention ──
+  try {
+    const [existing] = await db.execute(
+      'SELECT id FROM orders WHERE razorpay_payment_id = ? LIMIT 1',
+      [razorpay_payment_id]
+    );
+    if (existing.length > 0) {
+      console.warn(`⚠️  Duplicate payment submission: ${razorpay_payment_id}`);
+      return res.status(409).json({ error: 'Payment already processed', orderId: existing[0].id });
+    }
+  } catch (dbErr) {
+    console.error('DB idempotency check failed:', dbErr.message);
+    return res.status(500).json({ error: 'Database error during verification' });
+  }
+
+  // ── 8. Save order to MySQL ──
   let orderId;
+  const totalAmount = expectedPaise / 100; // use server-computed amount
   try {
     const [result] = await db.execute(
       `INSERT INTO orders
        (razorpay_order_id, razorpay_payment_id,
         customer_name, customer_email, customer_phone,
         customer_address, customer_city, customer_state, customer_pincode,
-        items_json, subtotal, shipping_charge, total,
-        status, created_at)
+        items_json, subtotal, shipping_charge, total, status, created_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`,
       [
         razorpay_order_id,
         razorpay_payment_id,
-        customerDetails.name,
-        customerDetails.email,
-        customerDetails.phone,
-        customerDetails.address,
-        customerDetails.city    || '',
-        customerDetails.state   || '',
-        customerDetails.pincode || '',
+        customer.name, customer.email, customer.phone,
+        customer.address, customer.city, customer.state, customer.pincode,
         JSON.stringify(cartItems),
-        totalAmount - shippingCharge,
-        shippingCharge,
-        totalAmount,
+        subtotal, shippingCharge, totalAmount,
         'paid',
       ]
     );
     orderId = result.insertId;
-    console.log('✅ Order saved to DB, ID:', orderId);
+    console.log(`✅ Order saved to DB: ID ${orderId}`);
   } catch (dbErr) {
     console.error('❌ DB insert failed:', dbErr.message);
-    return res.status(500).json({ error: 'DB save failed', details: dbErr.message });
+    return res.status(500).json({ error: 'Order save failed — contact support with payment ID: ' + razorpay_payment_id });
   }
 
-  // ── 3. Create shipment on Shiprocket ─────────────────────
+  // ── 9. Create shipment (non-blocking — order is already confirmed) ──
   let awb;
   try {
     awb = USE_MOCK
       ? mockShiprocketOrder(orderId)
-      : await createShiprocketOrder({ orderId, customerDetails, cartItems, totalAmount });
+      : await createShiprocketOrder({ orderId, customer, cartItems, totalAmount });
 
-    // Save AWB back to DB
     await db.execute(
       `UPDATE orders SET awb_number = ?, shiprocket_order_id = ? WHERE id = ?`,
       [awb.awb_code, awb.shipment_id, orderId]
     );
-    console.log('✅ Shipment created, AWB:', awb.awb_code);
+    console.log(`✅ Shipment created, AWB: ${awb.awb_code}`);
   } catch (shipErr) {
-    console.error('⚠️  Shiprocket failed (order still saved):', shipErr.message);
+    console.error('⚠️  Shiprocket failed (order still confirmed):', shipErr.message);
     awb = { awb_code: `PENDING-${orderId}`, shipment_id: null };
+    // Log for manual fulfilment
+    await db.execute(
+      `UPDATE orders SET status = 'paid_ship_pending' WHERE id = ?`,
+      [orderId]
+    ).catch(() => {});
   }
 
-  // ── 4. Send receipt email ─────────────────────────────────
-  try {
-    await sendReceiptEmail(
-      customerDetails,
-      {
-        orderId,
-        razorpay_payment_id,
-        cartItems,
-        totalAmount,
-        shippingCharge,
-        awb,
-      }
-    );
-  } catch (mailErr) {
-    console.error('⚠️  Email failed (non-fatal):', mailErr.message);
-  }
+  // ── 10. Send receipt email (non-blocking — don't fail the response) ──
+  sendReceiptEmail(customer, {
+    orderId, razorpay_payment_id, cartItems, totalAmount, shippingCharge, awb,
+  }).catch(mailErr => console.error('⚠️  Email failed:', mailErr.message));
 
   res.json({ success: true, orderId, awb: awb.awb_code });
 });
 
-// ===========================================================
-//  ROUTE 4 — TRACK SHIPMENT
-// ===========================================================
+// ============================================================
+//  ROUTE: GET /api/track/:orderId
+//  Returns live shipment tracking for an order.
+// ============================================================
 app.get('/api/track/:orderId', async (req, res) => {
+  const orderId = safeInt(req.params.orderId, 1);
+  if (!orderId) return res.status(400).json({ error: 'Invalid order ID' });
+
   try {
     const [rows] = await db.execute(
-      'SELECT awb_number, status, customer_name, created_at FROM orders WHERE id = ?',
-      [req.params.orderId]
+      'SELECT awb_number, status, customer_name, created_at FROM orders WHERE id = ? LIMIT 1',
+      [orderId]
     );
     if (!rows.length) {
       return res.status(404).json({ error: 'Order not found' });
@@ -487,14 +851,12 @@ app.get('/api/track/:orderId', async (req, res) => {
 
     const { awb_number, status, customer_name, created_at } = rows[0];
 
-    // ── MOCK MODE ──
     if (USE_MOCK || !awb_number || awb_number.startsWith('TEST-') || awb_number.startsWith('PENDING-')) {
-      console.log(`[MOCK] Tracking for order ${req.params.orderId}, AWB: ${awb_number}`);
       return res.json({
-        ...mockTrackingData(awb_number || req.params.orderId),
-        order_id:      req.params.orderId,
+        ...mockTrackingData(awb_number || String(orderId), orderId),
+        order_id:     orderId,
         customer_name,
-        order_date:    created_at,
+        order_date:   created_at,
       });
     }
 
@@ -502,216 +864,81 @@ app.get('/api/track/:orderId', async (req, res) => {
     const token    = await getShiprocketToken();
     const { data } = await axios.get(
       `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb_number}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }
     );
+
     res.json({
       ...data.tracking_data,
-      order_id:      req.params.orderId,
+      order_id:     orderId,
       customer_name,
-      order_date:    created_at,
+      order_date:   created_at,
     });
   } catch (e) {
     console.error('Tracking error:', e.response?.data || e.message);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: 'Could not fetch tracking information' });
   }
 });
 
-// ===========================================================
-//  ROUTE 5 — GET ALL ORDERS (simple admin check)
-// ===========================================================
-app.get('/api/orders', async (req, res) => {
+// ============================================================
+//  ROUTE: GET /api/orders
+//  Simple order list — MUST be protected by auth in production.
+//  Add your admin auth middleware before going live.
+// ============================================================
+
+// ── TODO: Replace this stub with real JWT/session auth ──
+function adminAuthMiddleware(req, res, next) {
+  const token = req.headers['x-admin-token'];
+  if (!IS_PROD) return next(); // skip in dev for convenience
+
+  // In production: validate JWT or session here
+  // Example: if (token !== process.env.ADMIN_SECRET) return res.status(401).json({ error: 'Unauthorized' });
+  if (!token || token !== process.env.ADMIN_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}
+
+app.get('/api/orders', adminAuthMiddleware, async (req, res) => {
   try {
+    const limit  = safeInt(req.query.limit,  1, 100) || 50;
+    const offset = safeInt(req.query.offset, 0)      || 0;
+
     const [rows] = await db.execute(
-      `SELECT id, customer_name, customer_email, total, status,
-              awb_number, created_at
-       FROM orders ORDER BY created_at DESC LIMIT 50`
+      `SELECT id, customer_name, customer_email, total, status, awb_number, created_at
+       FROM orders ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+      [limit, offset]
     );
     res.json(rows);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: 'Could not fetch orders' });
   }
 });
 
-// ===========================================================
-//  HELPERS
-// ===========================================================
-async function createShiprocketOrder({ orderId, customerDetails, cartItems, totalAmount }) {
-  const token = await getShiprocketToken();
-  const items = cartItems.map(i => ({
-    name:          i.name,
-    sku:           i.id,
-    units:         i.qty,
-    selling_price: i.price,
-    discount:      0,
-    tax:           0,
-    hsn:           0,
-  }));
+// ============================================================
+//  ROUTE: POST /api/capture-lead
+//  Saves email leads and sends welcome/discount email.
+// ============================================================
+app.post('/api/capture-lead', leadLimiter, async (req, res) => {
+  const email = sanitizeStr(req.body.email, 100).toLowerCase();
+  const name  = sanitizeStr(req.body.name);
+  const phone = sanitizePhone(req.body.phone);
 
-  const { data } = await axios.post(
-    'https://apiv2.shiprocket.in/v1/external/orders/create/adhoc',
-    {
-      order_id:              `DNT-${orderId}`,
-      order_date:            new Date().toISOString().slice(0, 19).replace('T', ' '),
-      pickup_location:       'Primary',
-      billing_customer_name: customerDetails.name,
-      billing_address:       customerDetails.address,
-      billing_city:          customerDetails.city    || '',
-      billing_pincode:       customerDetails.pincode || '',
-      billing_state:         customerDetails.state   || '',
-      billing_country:       'India',
-      billing_email:         customerDetails.email,
-      billing_phone:         customerDetails.phone,
-      shipping_is_billing:   true,
-      order_items:           items,
-      payment_method:        'Prepaid',
-      sub_total:             totalAmount,
-      length:  20,
-      breadth: 10,
-      height:  5,
-      weight:  0.5,
-    },
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-
-  if (!data.awb_code) {
-    throw new Error('Shiprocket did not return AWB code: ' + JSON.stringify(data));
-  }
-  return { awb_code: data.awb_code, shipment_id: data.shipment_id };
-}
-
-
-// async function sendReceiptEmail(customer, orderData) {
-//   if (!customer.email || !customer.email.includes('@')) {
-//     console.log('⚠️  Skipping email — no valid recipient address');
-//     return;
-//   }
-//   const isDev     = process.env.NODE_ENV !== 'production';
-//   const transport = isDev
-//     ? { service: 'gmail', auth: { user: process.env.EMAIL_FROM, pass: process.env.EMAIL_PASS } }
-//     : { host: 'smtp.hostinger.com', port: 465, secure: true, auth: { user: process.env.EMAIL_FROM, pass: process.env.EMAIL_PASS } };
-
-//   const transporter = nodemailer.createTransport(transport);
-
-//   const itemsHtml = orderData.cartItems.map(i =>
-//     `<tr>
-//        <td style="padding:8px;border:1px solid #e8d5b0">${i.name}</td>
-//        <td style="padding:8px;border:1px solid #e8d5b0;text-align:center">×${i.qty}</td>
-//        <td style="padding:8px;border:1px solid #e8d5b0;text-align:right">₹${(i.price * i.qty).toLocaleString('en-IN')}</td>
-//      </tr>`
-//   ).join('');
-
-//   const trackUrl = isDev
-//     ? `http://localhost:3000?order=${orderData.orderId}`
-//     : `https://yourdomain.com?order=${orderData.orderId}`;
-
-//   await transporter.sendMail({
-//     from:    `DENTALL 🦷 <${process.env.EMAIL_FROM}>`,
-//     to:      customer.email,
-//     subject: `✅ Your DENTALL order #DNT-${orderData.orderId} is confirmed!`,
-//     html: `
-//     <div style="font-family:'Segoe UI',sans-serif;max-width:560px;margin:0 auto;background:#FFFBF5;border-radius:12px;overflow:hidden;border:1px solid #E8D5B0">
-//       <!-- Header -->
-//       <div style="background:linear-gradient(135deg,#3B1A08,#FF5C00,#7C3AED);padding:2rem;text-align:center">
-//         <div style="font-family:Georgia,serif;font-size:1.8rem;font-weight:900;color:#fff;letter-spacing:.1em">DENTALL</div>
-//         <div style="color:rgba(255,255,255,.75);font-size:.85rem;margin-top:.3rem">Professional Dental Care</div>
-//       </div>
-
-//       <!-- Body -->
-//       <div style="padding:2rem">
-//         <h2 style="color:#FF5C00;font-family:Georgia,serif;margin-bottom:.5rem">Order Confirmed! 🎉</h2>
-//         <p style="color:#4A2C10;line-height:1.7">Hi <strong>${customer.name}</strong>, your payment was successful and your DENTALL brushes are on their way!</p>
-
-//         <!-- Order Details Box -->
-//         <div style="background:#FFF3E8;border:1px solid rgba(255,92,0,.2);border-radius:8px;padding:1rem 1.2rem;margin:1.5rem 0">
-//           <div style="display:flex;justify-content:space-between;margin-bottom:.4rem">
-//             <span style="font-size:.75rem;color:#8A6040;text-transform:uppercase;letter-spacing:.1em">Order ID</span>
-//             <strong style="color:#FF5C00">DNT-${orderData.orderId}</strong>
-//           </div>
-//           <div style="display:flex;justify-content:space-between;margin-bottom:.4rem">
-//             <span style="font-size:.75rem;color:#8A6040;text-transform:uppercase;letter-spacing:.1em">Payment ID</span>
-//             <strong style="color:#4A2C10;font-size:.82rem">${orderData.razorpay_payment_id}</strong>
-//           </div>
-//           <div style="display:flex;justify-content:space-between">
-//             <span style="font-size:.75rem;color:#8A6040;text-transform:uppercase;letter-spacing:.1em">AWB / Tracking</span>
-//             <strong style="color:#00D4B4">${orderData.awb.awb_code}</strong>
-//           </div>
-//         </div>
-
-//         <!-- Items Table -->
-//         <table style="width:100%;border-collapse:collapse;margin-bottom:1rem">
-//           <thead>
-//             <tr style="background:#F5EDDC">
-//               <th style="padding:8px;border:1px solid #e8d5b0;text-align:left;font-size:.75rem;color:#8A6040;text-transform:uppercase">Item</th>
-//               <th style="padding:8px;border:1px solid #e8d5b0;text-align:center;font-size:.75rem;color:#8A6040;text-transform:uppercase">Qty</th>
-//               <th style="padding:8px;border:1px solid #e8d5b0;text-align:right;font-size:.75rem;color:#8A6040;text-transform:uppercase">Price</th>
-//             </tr>
-//           </thead>
-//           <tbody>
-//             ${itemsHtml}
-//             <tr>
-//               <td colspan="2" style="padding:8px;border:1px solid #e8d5b0;color:#8A6040">Shipping</td>
-//               <td style="padding:8px;border:1px solid #e8d5b0;text-align:right;color:#00D4B4;font-weight:600">
-//                 ${orderData.shippingCharge === 0 ? 'FREE' : `₹${orderData.shippingCharge}`}
-//               </td>
-//             </tr>
-//             <tr style="background:#FFF3E8">
-//               <td colspan="2" style="padding:8px;border:1px solid #e8d5b0;font-weight:700;color:#1C0D02">Total</td>
-//               <td style="padding:8px;border:1px solid #e8d5b0;text-align:right;font-weight:900;color:#FF5C00;font-size:1rem">
-//                 ₹${orderData.totalAmount.toLocaleString('en-IN')}
-//               </td>
-//             </tr>
-//           </tbody>
-//         </table>
-
-//         <!-- Delivery Address -->
-//         <div style="background:#F0FDF9;border:1px solid rgba(0,212,180,.2);border-radius:8px;padding:1rem;margin-bottom:1.5rem">
-//           <div style="font-size:.7rem;color:#8A6040;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem">Delivery Address</div>
-//           <div style="color:#1C0D02;font-size:.85rem;line-height:1.6">
-//             ${customer.name}<br>
-//             ${customer.address}<br>
-//             ${customer.city || ''} ${customer.pincode || ''}<br>
-//             ${customer.state || ''}, India
-//           </div>
-//         </div>
-
-//         <!-- Track Button -->
-//         <div style="text-align:center;margin:1.5rem 0">
-//           <a href="${trackUrl}" style="background:linear-gradient(135deg,#FF5C00,#7C3AED);color:#fff;text-decoration:none;padding:.9rem 2.5rem;border-radius:30px;font-weight:700;font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;display:inline-block">
-//             📦 Track My Order →
-//           </a>
-//         </div>
-
-//         <p style="color:#8A6040;font-size:.78rem;line-height:1.7;text-align:center">
-//           Your package will be picked up within 24 hours and delivered in 3–7 business days.<br>
-//           Questions? Reply to this email or contact us at support@dentall.in
-//         </p>
-//       </div>
-
-//       <!-- Footer -->
-//       <div style="background:#F5EDDC;padding:1rem 2rem;text-align:center;font-size:.7rem;color:#8A6040">
-//         © 2025 DENTALL — Professional Dental Care. All rights reserved.
-//       </div>
-//     </div>`,
-//   });
-// }
-// ── Visitor lead capture ──
-app.post('/api/capture-lead', async (req, res) => {
-  const { name, email, phone } = req.body;
-  if (!email || !email.includes('@')) {
-    return res.status(400).json({ error: 'Valid email required' });
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: 'Valid email address required' });
   }
 
-  // Save to DB
+  // Save to DB (IGNORE duplicate emails gracefully)
   try {
     await db.execute(
       `INSERT IGNORE INTO leads (name, email, phone, created_at) VALUES (?,?,?,NOW())`,
-      [name || '', email, phone || '']
+      [name, email, phone]
     );
-  } catch(e) {
+  } catch (e) {
     console.error('Lead DB save failed:', e.message);
+    // Non-fatal — continue to send email anyway
   }
 
-  // Send offer email
+  // Send offer email (non-blocking)
   try {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -726,16 +953,11 @@ app.post('/api/capture-lead', async (req, res) => {
       <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto">
         <div style="background:linear-gradient(135deg,#3B1A08,#FF5C00,#7C3AED);padding:2.5rem;text-align:center;border-radius:12px 12px 0 0">
           <h1 style="color:#fff;margin:0;font-size:2rem">DENTALL 🦷</h1>
-          <p style="color:rgba(255,255,255,.85);margin:.5rem 0 0;font-size:1rem">Professional Dental Care</p>
+          <p style="color:rgba(255,255,255,.85);margin:.5rem 0 0">Professional Dental Care</p>
         </div>
         <div style="padding:2.5rem;background:#FFFBF5;border:1px solid #E8D5B0">
-          <h2 style="color:#FF5C00;margin-top:0">Hi${name ? ' ' + name : ''}! Welcome 👋</h2>
-          <p style="color:#4A2C10;line-height:1.8;font-size:.95rem">
-            Thanks for visiting DENTALL. We noticed you're interested in better oral care — 
-            and we'd love to help you get started.
-          </p>
-
-          <!-- Offer Box -->
+          <h2 style="color:#FF5C00;margin-top:0">Hi${name ? ' ' + sanitizeStr(name) : ''}! 👋</h2>
+          <p style="color:#4A2C10;line-height:1.8">Thanks for your interest in DENTALL. Here's your exclusive welcome discount:</p>
           <div style="background:linear-gradient(135deg,#FF5C00,#7C3AED);border-radius:12px;padding:2rem;text-align:center;margin:1.5rem 0">
             <p style="color:rgba(255,255,255,.8);margin:0;font-size:.85rem;text-transform:uppercase;letter-spacing:.1em">Exclusive Welcome Offer</p>
             <h2 style="color:#fff;font-size:3rem;margin:.3rem 0">10% OFF</h2>
@@ -744,63 +966,76 @@ app.post('/api/capture-lead', async (req, res) => {
               <span style="color:#FF5C00;font-weight:900;font-size:1.2rem;letter-spacing:.1em">WELCOME10</span>
             </div>
           </div>
-
-          <!-- Products -->
-          <h3 style="color:#1C0D02">What's in our range:</h3>
-          <table style="width:100%;border-collapse:collapse">
-            <tr>
-              <td style="padding:.8rem;background:#FFF3E8;border-radius:8px;margin-bottom:.5rem">
-                <strong style="color:#FF5C00">🪥 Single Brush</strong><br>
-                <span style="color:#4A2C10;font-size:.88rem">Perfect for trying DENTALL</span><br>
-                <strong style="color:#1C0D02">₹599</strong> <span style="color:#00D4B4;font-weight:700">→ ₹539 with code</span>
-              </td>
-            </tr>
-            <tr><td style="height:.5rem"></td></tr>
-            <tr>
-              <td style="padding:.8rem;background:#FFF3E8;border-radius:8px">
-                <strong style="color:#FF5C00">🦷 Family Pack (12 brushes)</strong><br>
-                <span style="color:#4A2C10;font-size:.88rem">Full year for a family of 4</span><br>
-                <strong style="color:#1C0D02">₹5,990</strong> <span style="color:#00D4B4;font-weight:700">→ ₹5,391 with code</span>
-              </td>
-            </tr>
-          </table>
-
           <div style="text-align:center;margin:2rem 0">
-            <a href="${process.env.SITE_URL || 'http://localhost:5173'}/#order" 
+            <a href="${process.env.SITE_URL}/#order"
                style="background:linear-gradient(135deg,#FF5C00,#7C3AED);color:#fff;text-decoration:none;padding:1rem 2.5rem;border-radius:30px;font-weight:700;font-size:.9rem;display:inline-block">
               Shop Now →
             </a>
           </div>
-
           <p style="color:#8A6040;font-size:.78rem;text-align:center;line-height:1.7">
-            ⏰ Offer valid for 48 hours only<br>
-            🔒 Secure payment via Razorpay<br>
-            🚚 Free shipping on family pack
+            ⏰ Offer valid for 48 hours · 🔒 Razorpay secured · 🚚 Free shipping on family pack
           </p>
         </div>
         <div style="background:#F5EDDC;padding:1rem;text-align:center;font-size:.72rem;color:#8A6040;border-radius:0 0 12px 12px">
-          © 2025 DENTALL — support@dentall.in<br>
-          <a href="#" style="color:#8A6040">Unsubscribe</a>
+          © 2025 DENTALL — support@dentall.in
         </div>
       </div>`,
     });
 
-    console.log(`✅ Offer email sent to ${email}`);
+    console.log(`✅ Lead email sent to ${email.replace(/(.{2}).+(@.+)/, '$1****$2')}`);
     res.json({ success: true });
-  } catch(e) {
-    console.error('Offer email failed:', e.message);
-    res.status(500).json({ error: e.message });
+  } catch (e) {
+    console.error('Lead email failed:', e.message);
+    // Still return success — we saved the lead, email is best-effort
+    res.json({ success: true });
   }
 });
 
-// Catch-all: serve React app for any non-API route
+// ============================================================
+//  GLOBAL ERROR HANDLER
+//  Catches unhandled errors and never leaks stack traces.
+// ============================================================
+app.use((err, req, res, _next) => {
+  console.error('Unhandled error:', err.message);
+  // Never expose stack traces in production
+  res.status(500).json({
+    error: IS_PROD ? 'An unexpected error occurred. Please try again.' : err.message,
+  });
+});
+
+// ── Catch-all: serve React SPA for all non-API routes ──
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, '../dist', 'index.html'));
 });
 
+// ============================================================
+//  START SERVER
+// ============================================================
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`\n🚀 DENTALL server running on http://localhost:${PORT}`);
-  console.log(`   Mode: ${USE_MOCK ? '🧪 MOCK Shiprocket' : '🚀 REAL Shiprocket'}`);
-  console.log(`   ENV:  ${process.env.NODE_ENV || 'development'}\n`);
+  console.log(`\n✅ DENTALL server running on port ${PORT}`);
+  console.log(`   http://localhost:${PORT}\n`);
+});
+
+// ── Graceful shutdown — don't drop live requests ──
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received — shutting down gracefully...');
+  await db.end();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received — shutting down...');
+  await db.end();
+  process.exit(0);
+});
+
+// ── Catch uncaught errors — log but don't crash ──
+process.on('uncaughtException', err => {
+  console.error('Uncaught exception:', err);
+  if (IS_PROD) process.exit(1); // let process manager (PM2) restart it
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
 });

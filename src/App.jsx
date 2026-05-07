@@ -537,12 +537,22 @@ body {
   .dn-pay-field-row { grid-template-columns:1fr; }
   .dn-tracking-section { padding: 5rem 1.4rem; }
 }
+  @keyframes pulseGlow {
+  0%,100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
 `;
 
 /* ─── CONSTANTS ────────────────────────────────────────────────── */
 const SINGLE_PRICE    = 599;
 const FAMILY_PACK_PRICE = 5990;
-const RAZORPAY_KEY_ID = "rzp_test_SlG1HvlDp3i5Fw"; // ← replace with your key
+// const RAZORPAY_KEY_ID = "rzp_test_SlG1HvlDp3i5Fw"; // ← replace with your key
 
 const FEATURES = [
   { num:"01", icon:"🦷", title:"Nano Bristle Technology", text:"10,000 micro-filaments per cm² with varying stiffness — hard on plaque, gentle on enamel and gums." },
@@ -578,6 +588,216 @@ const INDIA_STATES = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chha
 function lerp(a, b, t) { return a + (b - a) * t; }
 function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
 function easeInOut(t) { return t < .5 ? 2*t*t : -1+(4-2*t)*t; }
+
+
+/* ─── BRUSH COLOR SHOWCASE ─────────────────────────────────── */
+const BRUSH_COLORS = [
+  {
+    name: 'Crimson Red',
+    filter: 'none',
+    dot: '#E8294A',
+    label: 'Signature Red',
+  },
+  {
+    name: 'Ocean Blue',
+    filter: 'hue-rotate(200deg) saturate(1.4)',
+    dot: '#1A72E8',
+    label: 'Ocean Blue',
+  },
+  {
+    name: 'Forest Green',
+    filter: 'hue-rotate(100deg) saturate(1.3) brightness(0.95)',
+    dot: '#22A85A',
+    label: 'Forest Green',
+  },
+  {
+    name: 'Midnight Black',
+    filter: 'grayscale(0.9) brightness(0.35)',
+    dot: '#2C2C2C',
+    label: 'Midnight Black',
+  },
+];
+
+function BrushColorShowcase() {
+  const [active, setActive] = useState(0);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    startAutoSlide();
+
+    return () => clearInterval(timerRef.current);
+  }, []);
+
+  const startAutoSlide = () => {
+    timerRef.current = setInterval(() => {
+      setActive((prev) => (prev + 1) % BRUSH_COLORS.length);
+    }, 2800);
+  };
+
+  const handleClick = (idx) => {
+    clearInterval(timerRef.current);
+
+    setActive(idx);
+
+    startAutoSlide();
+  };
+
+  return (
+    <div
+      style={{
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '1.2rem',
+      }}
+    >
+      {/* Showcase */}
+      <div
+        style={{
+          position: 'relative',
+          width: 320,
+          height: 600,
+          paddingTop: 70,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          perspective: '1200px',
+        }}
+      >
+        {/* Dynamic color glow */}
+        <div
+          style={{
+            position: 'absolute',
+            width: 240,
+            height: 240,
+            borderRadius: '50%',
+            background: `${BRUSH_COLORS[active].dot}25`,
+            filter: 'blur(70px)',
+            transition: 'all 0.7s ease',
+            animation: 'pulseGlow 3s ease-in-out infinite',
+          }}
+        />
+
+        {/* Color label */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 10,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(255,255,255,0.88)',
+            backdropFilter: 'blur(12px)',
+            border: `1px solid ${BRUSH_COLORS[active].dot}30`,
+            borderRadius: 30,
+            padding: '0.5rem 1.4rem',
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            color: BRUSH_COLORS[active].dot,
+            transition: 'all 0.4s ease',
+            boxShadow: `0 8px 24px ${BRUSH_COLORS[active].dot}20`,
+            whiteSpace: 'nowrap',
+            zIndex: 5,
+          }}
+        >
+          {BRUSH_COLORS[active].label}
+        </div>
+
+        {/* Brush images */}
+        {BRUSH_COLORS.map((c, i) => (
+          <img
+            key={i}
+            src="image/brush.png"
+            alt={c.name}
+            style={{
+              position: 'absolute',
+              width: 220,
+
+              filter: `
+                ${c.filter}
+                drop-shadow(0 24px 60px ${c.dot}35)
+                drop-shadow(0 8px 20px rgba(0,0,0,.15))
+              `,
+
+              opacity: i === active ? 1 : 0,
+
+              transform:
+                i === active
+                  ? 'rotateY(0deg) scale(1)'
+                  : 'rotateY(-90deg) scale(0.82)',
+
+              transformOrigin: 'center center',
+
+              transition: `
+                opacity 0.65s ease,
+                transform 0.8s cubic-bezier(.4,0,.2,1)
+              `,
+
+              backfaceVisibility: 'hidden',
+
+              animation:
+                i === active
+                  ? 'float-hero 4s ease-in-out infinite'
+                  : 'none',
+
+              zIndex: i === active ? 2 : 1,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Color selectors */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.9rem',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginTop: '-1rem',
+        }}
+      >
+        {BRUSH_COLORS.map((c, i) => (
+          <button
+            key={i}
+            onClick={() => handleClick(i)}
+            title={c.name}
+            style={{
+              width: i === active ? 30 : 20,
+              height: i === active ? 30 : 20,
+              borderRadius: '50%',
+              background: c.dot,
+
+              border:
+                i === active
+                  ? '3px solid white'
+                  : '2px solid transparent',
+
+              cursor: 'pointer',
+
+              transition:
+                'all 0.35s cubic-bezier(.4,0,.2,1)',
+
+              transform:
+                i === active
+                  ? 'scale(1.18)'
+                  : 'scale(1)',
+
+              boxShadow:
+                i === active
+                  ? `0 0 22px ${c.dot}`
+                  : '0 4px 10px rgba(0,0,0,0.15)',
+
+              outline: 'none',
+            }}
+            aria-label={c.name}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /* ─── TRACKING COMPONENT ──────────────────────────────────────── */
 function TrackingSection() {
@@ -818,9 +1038,24 @@ export default function DentallApp() {
     document.head.appendChild(tag);
     return () => document.head.removeChild(tag);
   }, []);
+
+  // { lead popup first 15s  and  it comes afetr  every 30 sec}
   useEffect(() => {
-  const t = setTimeout(() => setLeadPopup(true), 15000);
-  return () => clearTimeout(t);
+  let interval;
+
+  const firstTimer = setTimeout(() => {
+    setLeadPopup(true);
+
+    interval = setInterval(() => {
+      setLeadPopup(true);
+    }, 60000);
+
+  }, 15000);
+
+  return () => {
+    clearTimeout(firstTimer);
+    clearInterval(interval);
+  };
 }, []);
 
   /* ── Load Razorpay script once ── */
@@ -979,43 +1214,65 @@ export default function DentallApp() {
     }
   };
 
-  /* ── Razorpay payment flow ── */
+  /* ── Razorpay payment flow ──     secrued payment handled on 7/5/26*/
   const handleRazorpayCheckout = async () => {
-    if (cartItems.length === 0) return;
-    setPayProcessing(true);
-    try {
-      // Step 1 — create order on backend
-      const orderRes = await fetch('/api/create-order', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ amount: cartTotal * 100 }), // paise
-      });
-      const { orderId: rzpOrderId, amount } = await orderRes.json();
-
-      // Step 2 — open Razorpay checkout
-      const options = {
-        key:         RAZORPAY_KEY_ID,
-        amount,
-        currency:    'INR',
-        name:        'DENTALL',
-        description: 'Professional toothbrushes',
-        image:       '/image/brush.png',
-        order_id:    rzpOrderId,
-        prefill: {
-          name:    form.fname + ' ' + form.lname,
-          email:   form.email,
-          contact: form.phone,
-        },
-        notes: {
-          address: form.address,
-          pincode: modalPincode || form.pincode,
-        },
-        theme: { color:'#FF5C00' },
-        handler: async (response) => {
-          // Step 3 — verify on backend, save DB, create shipment, send email
+  if (cartItems.length === 0) return;
+  setPayProcessing(true);
+ 
+  try {
+    // Step 1 — create order on backend.
+    // Server computes amount from its own catalogue — client amount is ignored.
+    const orderRes = await fetch('/api/create-order', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cartItems,                                  // server re-validates these
+        shippingCharge: modalShipping?.charge ?? 0, // server caps this safely
+      }),
+    });
+ 
+    if (!orderRes.ok) {
+      const err = await orderRes.json().catch(() => ({}));
+      showToast(err.error || 'Could not create order. Please try again.');
+      setPayProcessing(false);
+      return;
+    }
+ 
+    // Server returns keyId — never hardcoded in frontend
+    const { orderId: rzpOrderId, amount, keyId, computedTotal } = await orderRes.json();
+ 
+    if (!rzpOrderId || !keyId) {
+      showToast('Order creation failed. Please try again.');
+      setPayProcessing(false);
+      return;
+    }
+ 
+    // Step 2 — open Razorpay checkout
+    const options = {
+      key:         keyId,          // ← from server, not hardcoded
+      amount,                      // ← server-computed paise amount
+      currency:    'INR',
+      name:        'DENTALL',
+      description: 'Professional toothbrushes',
+      image:       '/image/brush.png',
+      order_id:    rzpOrderId,
+      prefill: {
+        name:    (form.fname + ' ' + form.lname).trim(),
+        email:   form.email,
+        contact: form.phone,
+      },
+      notes: {
+        address: form.address,
+        pincode: modalPincode || form.pincode,
+      },
+      theme: { color: '#FF5C00' },
+ 
+      handler: async (response) => {
+        // Step 3 — verify on backend
+        try {
           const verifyRes = await fetch('/api/verify-payment', {
-            method:'POST',
-            headers:{ 'Content-Type':'application/json' },
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               razorpay_order_id:   response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
@@ -1030,11 +1287,20 @@ export default function DentallApp() {
                 pincode: modalPincode || form.pincode,
               },
               cartItems,
-              totalAmount:   cartTotal,
-              shippingCharge: cartShipping,
+              shippingCharge: modalShipping?.charge ?? 0,
+              // NOTE: totalAmount is NOT sent — server computes it from
+              // cartItems + shippingCharge using its own catalogue prices.
             }),
           });
+ 
           const result = await verifyRes.json();
+ 
+          if (!verifyRes.ok) {
+            showToast(result.error || 'Verification failed. Contact support with your payment ID.');
+            setPayProcessing(false);
+            return;
+          }
+ 
           if (result.success) {
             setSuccessOrder({ orderId: result.orderId, awb: result.awb });
             setPaySuccess(true);
@@ -1043,23 +1309,35 @@ export default function DentallApp() {
           } else {
             showToast('Payment verification failed. Please contact support.');
           }
+        } catch (verifyErr) {
+          console.error('Verify error:', verifyErr);
+          showToast('Verification error. Please contact support with your payment ID.');
+        } finally {
+          setPayProcessing(false);
+        }
+      },
+ 
+      modal: {
+        ondismiss: () => {
+          setPayProcessing(false);
+          showToast('Payment cancelled.');
         },
-        modal: {
-          ondismiss: () => setPayProcessing(false),
-        },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', (resp) => {
-        showToast('Payment failed: ' + resp.error.description);
-        setPayProcessing(false);
-      });
-      rzp.open();
-    } catch (e) {
-      showToast('Something went wrong. Please try again.');
+      },
+    };
+ 
+    const rzp = new window.Razorpay(options);
+    rzp.on('payment.failed', (resp) => {
+      showToast('Payment failed: ' + (resp.error?.description || 'Unknown error'));
       setPayProcessing(false);
-    }
-  };
+    });
+    rzp.open();
+ 
+  } catch (e) {
+    console.error('Checkout error:', e);
+    showToast('Something went wrong. Please try again.');
+    setPayProcessing(false);
+  }
+}
 
   const closePayment = () => {
     setShowPayment(false);
@@ -1095,20 +1373,22 @@ export default function DentallApp() {
   };
 
   const mobilePanel = mobilePanelPhase > 0 ? MOBILE_PANELS[mobilePanelPhase] : null;
-  const inputStyle = {
+  // ADD THIS INSTEAD
+const inputStyle = {
   width: '100%',
   padding: '.75rem 1rem',
-  border: '1.5px solid #E8D5B0',
+  border: '2px solid #E8D5B0',
   borderRadius: '8px',
   fontFamily: 'DM Sans,sans-serif',
   fontSize: '.9rem',
   marginBottom: '.8rem',
   boxSizing: 'border-box',
   outline: 'none',
-  background: '#fff',
+  background: '#FFFFFF',           // ← pure white, not cream
   color: '#1C0D02',
+  display: 'block',
+  WebkitAppearance: 'none',
 };
-
   /* ─── RENDER ─────────────────────────────────────────────────── */
   return (
     <>
@@ -1225,29 +1505,29 @@ export default function DentallApp() {
       </div>
 
       {/* ── Hero ── */}
-      <section className="dn-hero" id="hero">
-        <div className="dn-hero-bg" />
-        <div className="dn-hero-content">
-          <div className="dn-hero-tag">Professional Dental Care</div>
-          <h1 className="dn-h1">Brush with<br/><em>Confidence</em><br/>Every Day.</h1>
-          <p className="dn-hero-sub">DENTALL's precision-engineered bristle system and ergonomic grip deliver a dentist-quality clean — every single morning. Starting at just ₹599 per brush.</p>
-          <div className="dn-hero-ctas">
-            <button className="dn-btn-primary" onClick={()=>scrollTo('order')}>Shop Now — from ₹599</button>
-            <button className="dn-btn-ghost"   onClick={()=>scrollTo('scroll-stage')}>Explore Features</button>
-          </div>
-        </div>
-        <div className="dn-hero-image-wrap">
-          <img src="image/brush.png" alt="DENTALL Toothbrush" className="dn-hero-img" onError={e=>{e.target.style.opacity=0;}} />
-          <div className="dn-hero-badge">
-            <div style={{fontSize:'1.3rem'}}>🦷</div>
-            <div>
-              <div className="dn-badge-label">Dentist Rating</div>
-              <div className="dn-badge-val">★★★★★ 4.9 / 5.0</div>
-            </div>
-          </div>
-        </div>
-        <div className="dn-scroll-hint">Scroll to explore</div>
-      </section>
+<section className="dn-hero" id="hero">
+  <div className="dn-hero-bg" />
+  <div className="dn-hero-content">
+    <div className="dn-hero-tag">Professional Dental Care</div>
+    <h1 className="dn-h1">Brush with<br/><em>Confidence</em><br/>Every Day.</h1>
+    <p className="dn-hero-sub">DENTALL's precision-engineered bristle system and ergonomic grip deliver a dentist-quality clean — every single morning. Starting at just ₹599 per brush.</p>
+    <div className="dn-hero-ctas">
+      <button className="dn-btn-primary" onClick={()=>scrollTo('order')}>Shop Now — from ₹599</button>
+      <button className="dn-btn-ghost"   onClick={()=>scrollTo('scroll-stage')}>Explore Features</button>
+    </div>
+  </div>
+  <div className="dn-hero-image-wrap">
+    <BrushColorShowcase />
+    <div className="dn-hero-badge">
+      <div style={{fontSize:'1.3rem'}}>🦷</div>
+      <div>
+        <div className="dn-badge-label">Dentist Rating</div>
+        <div className="dn-badge-val">★★★★★ 4.9 / 5.0</div>
+      </div>
+    </div>
+  </div>
+  <div className="dn-scroll-hint">Scroll to explore</div>
+</section>
 
       {/* ── Family Pack Banner ── */}
       <section className="dn-pack-banner" id="family-pack">
@@ -1686,7 +1966,7 @@ export default function DentallApp() {
       position: 'fixed',
       inset: 0,
       background: 'rgba(0,0,0,.6)',
-      zIndex: 9999,
+      zIndex: 10000,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -1696,7 +1976,8 @@ export default function DentallApp() {
   >
     <div
       style={{
-        background: '#FFFBF5',
+        background: '#ffffff',
+        boxShadow: '0 40px 100px rgba(0,0,0,.5)',
         borderRadius: '16px',
         width: '100%',
         maxWidth: '420px',

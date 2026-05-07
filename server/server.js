@@ -364,14 +364,14 @@ async function generateReceiptPDF(customer, orderData) {
     doc.on('error', reject);
 
     // Header
-    doc.rect(0, 0, 612, 100).fill('#FF5C00');
+    doc.rect(0, 0, 612, 100).fill('var(--primary)');
     doc.fillColor('#fff').font('Helvetica-Bold').fontSize(28).text('DENTALL', 50, 30);
     doc.font('Helvetica').fontSize(10).text('Professional Dental Care', 50, 65);
     doc.fillColor('#fff').fontSize(10).text('RECEIPT', 490, 45, { align: 'right' });
 
     // Order Info
     doc.rect(50, 120, 512, 80).fill('#FFF3E8');
-    doc.fillColor('#FF5C00').font('Helvetica-Bold').fontSize(11)
+    doc.fillColor('var(--primary)').font('Helvetica-Bold').fontSize(11)
        .text(`Order ID: DNT-${orderData.orderId}`, 65, 135);
     doc.fillColor('#4A2C10').font('Helvetica').fontSize(10)
        .text(`Payment: ${orderData.razorpay_payment_id.slice(0, 8)}****`, 65, 153)
@@ -413,7 +413,7 @@ async function generateReceiptPDF(customer, orderData) {
        .text('Shipping:', 400, y)
        .text(orderData.shippingCharge === 0 ? 'FREE' : `Rs.${orderData.shippingCharge}`, 490, y);
     y += 20;
-    doc.rect(380, y - 5, 182, 28).fill('#FF5C00');
+    doc.rect(380, y - 5, 182, 28).fill('var(--primary)');
     doc.fillColor('#fff').font('Helvetica-Bold').fontSize(13)
        .text('TOTAL:', 390, y + 2)
        .text(`Rs.${orderData.totalAmount.toLocaleString('en-IN')}`, 455, y + 2);
@@ -454,22 +454,22 @@ async function sendReceiptEmail(customer, orderData) {
     subject: `✅ Your DENTALL Order #DNT-${orderData.orderId} — Receipt Enclosed`,
     html: `
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto">
-      <div style="background:linear-gradient(135deg,#3B1A08,#FF5C00);padding:2rem;text-align:center;border-radius:12px 12px 0 0">
+      <div style="background:linear-gradient(135deg,#3B1A08,var(--primary));padding:2rem;text-align:center;border-radius:12px 12px 0 0">
         <h1 style="color:#fff;margin:0;font-size:1.8rem">DENTALL 🦷</h1>
         <p style="color:rgba(255,255,255,.8);margin:.3rem 0 0">Order Confirmed!</p>
       </div>
       <div style="padding:2rem;background:#FFFBF5;border:1px solid #E8D5B0">
-        <h2 style="color:#FF5C00">Hi ${sanitizeStr(customer.name)}! 🎉</h2>
+        <h2 style="color:var(--primary)">Hi ${sanitizeStr(customer.name)}! 🎉</h2>
         <p style="color:#4A2C10;line-height:1.7">
           Your payment of <strong>₹${orderData.totalAmount.toLocaleString('en-IN')}</strong>
           was successful. Your DENTALL brushes will be shipped within 24 hours.
         </p>
-        <div style="background:#FFF3E8;border-left:4px solid #FF5C00;padding:1rem;margin:1.5rem 0;border-radius:4px">
-          <p style="margin:0;color:#FF5C00;font-weight:700">Order ID: DNT-${orderData.orderId}</p>
+        <div style="background:#FFF3E8;border-left:4px solid var(--primary);padding:1rem;margin:1.5rem 0;border-radius:4px">
+          <p style="margin:0;color:var(--primary);font-weight:700">Order ID: DNT-${orderData.orderId}</p>
           <p style="margin:.3rem 0 0;color:#4A2C10;font-size:.9rem">AWB: ${orderData.awb?.awb_code || 'Will be updated soon'}</p>
         </div>
         <div style="text-align:center;margin:1.5rem 0">
-          <a href="${trackUrl}" style="background:linear-gradient(135deg,#FF5C00,#7C3AED);color:#fff;text-decoration:none;padding:.9rem 2.5rem;border-radius:30px;font-weight:700;font-size:.85rem;display:inline-block">
+          <a href="${trackUrl}" style="background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;text-decoration:none;padding:.9rem 2.5rem;border-radius:30px;font-weight:700;font-size:.85rem;display:inline-block">
             📦 Track My Order →
           </a>
         </div>
@@ -951,24 +951,24 @@ app.post('/api/capture-lead', leadLimiter, async (req, res) => {
       subject: '🦷 Special Offer Just for You — 10% Off Your First DENTALL Order!',
       html: `
       <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto">
-        <div style="background:linear-gradient(135deg,#3B1A08,#FF5C00,#7C3AED);padding:2.5rem;text-align:center;border-radius:12px 12px 0 0">
+        <div style="background:linear-gradient(135deg,#3B1A08,var(--primary),var(--secondary));padding:2.5rem;text-align:center;border-radius:12px 12px 0 0">
           <h1 style="color:#fff;margin:0;font-size:2rem">DENTALL 🦷</h1>
           <p style="color:rgba(255,255,255,.85);margin:.5rem 0 0">Professional Dental Care</p>
         </div>
         <div style="padding:2.5rem;background:#FFFBF5;border:1px solid #E8D5B0">
-          <h2 style="color:#FF5C00;margin-top:0">Hi${name ? ' ' + sanitizeStr(name) : ''}! 👋</h2>
+          <h2 style="color:var(--primary);margin-top:0">Hi${name ? ' ' + sanitizeStr(name) : ''}! 👋</h2>
           <p style="color:#4A2C10;line-height:1.8">Thanks for your interest in DENTALL. Here's your exclusive welcome discount:</p>
-          <div style="background:linear-gradient(135deg,#FF5C00,#7C3AED);border-radius:12px;padding:2rem;text-align:center;margin:1.5rem 0">
+          <div style="background:linear-gradient(135deg,var(--primary),var(--secondary));border-radius:12px;padding:2rem;text-align:center;margin:1.5rem 0">
             <p style="color:rgba(255,255,255,.8);margin:0;font-size:.85rem;text-transform:uppercase;letter-spacing:.1em">Exclusive Welcome Offer</p>
             <h2 style="color:#fff;font-size:3rem;margin:.3rem 0">10% OFF</h2>
             <p style="color:rgba(255,255,255,.9);margin:0 0 1rem">on your first order</p>
             <div style="background:#fff;border-radius:8px;padding:.8rem 1.5rem;display:inline-block">
-              <span style="color:#FF5C00;font-weight:900;font-size:1.2rem;letter-spacing:.1em">WELCOME10</span>
+              <span style="color:var(--primary);font-weight:900;font-size:1.2rem;letter-spacing:.1em">WELCOME10</span>
             </div>
           </div>
           <div style="text-align:center;margin:2rem 0">
             <a href="${process.env.SITE_URL}/#order"
-               style="background:linear-gradient(135deg,#FF5C00,#7C3AED);color:#fff;text-decoration:none;padding:1rem 2.5rem;border-radius:30px;font-weight:700;font-size:.9rem;display:inline-block">
+               style="background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;text-decoration:none;padding:1rem 2.5rem;border-radius:30px;font-weight:700;font-size:.9rem;display:inline-block">
               Shop Now →
             </a>
           </div>

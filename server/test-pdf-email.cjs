@@ -52,14 +52,14 @@ function generateReceiptPDF(customer, orderData) {
       doc.on('error', err   => reject(err));
 
       // Header
-      doc.rect(0, 0, 612, 110).fill('#FF5C00');
+      doc.rect(0, 0, 612, 110).fill('var(--primary)');
       doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(30).text('DENTALL', 50, 28);
       doc.fillColor('rgba(255,255,255,0.75)').font('Helvetica').fontSize(10).text('Professional Dental Care', 50, 66);
       doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(14).text('RECEIPT', 50, 84, { align: 'right', width: 512 });
 
       // Order info box
       doc.rect(50, 128, 512, 85).fill('#FFF3E8').stroke('#FFD4A8');
-      doc.fillColor('#FF5C00').font('Helvetica-Bold').fontSize(12)
+      doc.fillColor('var(--primary)').font('Helvetica-Bold').fontSize(12)
          .text(`Order ID: DNT-${orderData.orderId}`, 65, 142);
       doc.fillColor('#4A2C10').font('Helvetica').fontSize(10)
          .text(`Payment ID : ${orderData.razorpay_payment_id}`, 65, 160)
@@ -105,7 +105,7 @@ function generateReceiptPDF(customer, orderData) {
          .text('Shipping', 400, y)
          .text(orderData.shippingCharge === 0 ? 'FREE' : `Rs.${orderData.shippingCharge}`, 510, y, { width: 52, align: 'right' });
       y += 20;
-      doc.rect(360, y, 202, 32).fill('#FF5C00');
+      doc.rect(360, y, 202, 32).fill('var(--primary)');
       doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(14)
          .text('TOTAL', 370, y + 9)
          .text(`Rs.${orderData.totalAmount.toLocaleString('en-IN')}`, 370, y + 9, { width: 180, align: 'right' });
@@ -206,20 +206,20 @@ async function runTests() {
       subject: `🧪 TEST — DENTALL Receipt #DNT-999 with PDF`,
       html: `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#FFFBF5;border-radius:12px;overflow:hidden;border:1px solid #E8D5B0">
-        <div style="background:linear-gradient(135deg,#3B1A08,#FF5C00,#7C3AED);padding:2rem;text-align:center">
+        <div style="background:linear-gradient(135deg,#3B1A08,var(--primary),var(--secondary));padding:2rem;text-align:center">
           <h1 style="color:#fff;margin:0">DENTALL 🦷</h1>
           <p style="color:rgba(255,255,255,.8);margin:.3rem 0 0">TEST EMAIL — PDF Receipt Test</p>
         </div>
         <div style="padding:2rem">
-          <h2 style="color:#FF5C00">✅ PDF + Email Test Passed!</h2>
+          <h2 style="color:var(--primary)">✅ PDF + Email Test Passed!</h2>
           <p style="color:#4A2C10;line-height:1.75">
             This is a test receipt for <strong>Order DNT-999</strong>.<br>
             The PDF receipt is attached below.
           </p>
-          <div style="background:#FFF3E8;border-left:4px solid #FF5C00;padding:1rem;border-radius:4px;margin:1rem 0">
-            <p style="margin:0;color:#FF5C00;font-weight:700">Order ID: DNT-999</p>
+          <div style="background:#FFF3E8;border-left:4px solid var(--primary);padding:1rem;border-radius:4px;margin:1rem 0">
+            <p style="margin:0;color:var(--primary);font-weight:700">Order ID: DNT-999</p>
             <p style="margin:.3rem 0 0;color:#4A2C10">Payment ID: pay_TEST123456789</p>
-            <p style="margin:.3rem 0 0;color:#00D4B4;font-weight:600">AWB: TEST-AWB-999-1234567890</p>
+            <p style="margin:.3rem 0 0;color:var(--accent);font-weight:600">AWB: TEST-AWB-999-1234567890</p>
           </div>
           <table style="width:100%;border-collapse:collapse;margin:1rem 0">
             <tr style="background:#3B1A08">
@@ -234,9 +234,9 @@ async function runTests() {
             </tr>
             <tr>
               <td colspan="2" style="padding:8px;color:#8A6040">Shipping</td>
-              <td style="padding:8px;text-align:right;color:#00D4B4;font-weight:600">₹50</td>
+              <td style="padding:8px;text-align:right;color:var(--accent);font-weight:600">₹50</td>
             </tr>
-            <tr style="background:#FF5C00">
+            <tr style="background:var(--primary)">
               <td colspan="2" style="padding:10px;font-weight:700;color:#fff">TOTAL</td>
               <td style="padding:10px;text-align:right;font-weight:900;color:#fff;font-size:1.1rem">₹6,040</td>
             </tr>

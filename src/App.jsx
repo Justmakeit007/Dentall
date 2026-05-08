@@ -1059,24 +1059,24 @@ export default function DentallApp() {
     return () => document.head.removeChild(tag);
   }, []);
 
-  // { lead popup first 15s  and  it comes afetr  every 30 sec}
-  useEffect(() => {
-  let interval;
+//   // { lead popup first 15s  and  it comes afetr  every 30 sec}
+//   useEffect(() => {
+//   let interval;
 
-  const firstTimer = setTimeout(() => {
-    setLeadPopup(true);
+//   const firstTimer = setTimeout(() => {
+//     setLeadPopup(true);
 
-    interval = setInterval(() => {
-      setLeadPopup(true);
-    }, 60000);
+//     interval = setInterval(() => {
+//       setLeadPopup(true);
+//     }, 60000);
 
-  }, 15000);
+//   }, 15000);
 
-  return () => {
-    clearTimeout(firstTimer);
-    clearInterval(interval);
-  };
-}, []);
+//   return () => {
+//     clearTimeout(firstTimer);
+//     clearInterval(interval);
+//   };
+// }, []);
 
   /* ── Load Razorpay script once ── */
   useEffect(() => {

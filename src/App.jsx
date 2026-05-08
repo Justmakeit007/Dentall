@@ -828,7 +828,9 @@ function TrackingSection() {
 
   // Auto-load from URL param  e.g. /track?order=42
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash; // e.g. "#tracking?order=42"
+    const queryPart = hash.includes('?') ? hash.split('?')[1] : '';
+    const params = new URLSearchParams(queryPart);
     const id = params.get('order');
     if (id) { setOrderId(id); fetchTracking(id); }
   }, []);

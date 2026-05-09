@@ -106,7 +106,7 @@ body {
   body { cursor:none; }
   .dentall-cursor-dot,.dentall-cursor-ring { pointer-events:none; position:fixed; border-radius:50%; z-index:9999; transform:translate(-50%,-50%); transition:width .2s,height .2s; }
   .dentall-cursor-dot  { width:10px; height:10px; background:var(--grad-primary); box-shadow:0 0 10px var(--primary-muted); }
-  .dentall-cursor-ring { width:32px; height:32px; border:1.5px solid color-mix(in srgb,var(--primary) 50%,transparent); z-index:9998; transition:left .1s ease,top .1s ease; }
+  .dentall-cursor-ring { width:32px; height:32px; border:1.5px solid color-mix(in srgb,var(--primary) 50%,transparent); z-index:9999; transition:left .1s ease,top .1s ease; }
   button,a,input { cursor:none !important; }
 }
 @media(pointer:coarse){ .dentall-cursor-dot,.dentall-cursor-ring { display:none; } }

@@ -593,13 +593,18 @@ async function handleWebhook(req, res) {
 // ============================================================
 app.post('/api/shipping-cost', shippingLimiter, async (req, res) => {
   const pincode = sanitizePincode(req.body.pincode);
+  const weight = parseFloat(req.body.weight) || 0.5; // Default to 0.5kg if not provided
 
   if (!isValidPincode(pincode)) {
     return res.status(400).json({ error: 'Valid 6-digit Indian pincode required' });
   }
 
+  if (weight <= 0 || weight > 50) { // Reasonable limits: 0-50kg
+    return res.status(400).json({ error: 'Invalid weight. Must be between 0.1 and 50kg' });
+  }
+
   if (USE_MOCK) {
-    console.log(`[MOCK] Shipping cost → pincode ${pincode}`);
+    console.log(`[MOCK] Shipping cost → pincode ${pincode}, weight ${weight}kg`);
     return res.json(mockShippingCost());
   }
 
@@ -613,7 +618,7 @@ app.post('/api/shipping-cost', shippingLimiter, async (req, res) => {
         params: {
           pickup_postcode:   process.env.YOUR_PINCODE,
           delivery_postcode: pincode,
-          weight:            0.5,
+          weight:            weight,
           cod:               0,
         },
         timeout: 10000,

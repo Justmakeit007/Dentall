@@ -89,7 +89,7 @@ body {
 
 @media(pointer:fine){
   body { cursor:none; }
-  .dentall-cursor-dot,.dentall-cursor-ring { pointer-events:none; position:fixed; border-radius:50%; z-index:99999; transform:translate(-50%,-50%); transition:width .2s,height .2s; }
+  .dentall-cursor-dot,.dentall-cursor-ring { pointer-events:none; position:fixed; border-radius:50%; z-index:99999; top:-100px; left:-100px; transition:width .2s,height .2s; }
   .dentall-cursor-dot  { width:10px; height:10px; background:var(--primary); }
   .dentall-cursor-ring { width:32px; height:32px; border:1.5px solid color-mix(in srgb,var(--primary) 50%,transparent); z-index:99998; transition:left .1s ease,top .1s ease; }
   button,a,input { cursor:none !important; }
@@ -127,7 +127,7 @@ body {
  
 
 .dn-drawer {
-  position:fixed; top:0; left:0; width:100%; height:100%; z-index:99;
+  position:fixed; top:0; left:0; width:100%; height:100%; z-index:100000;
   background:var(--white); display:flex; flex-direction:column; justify-content:center; align-items:center;
   gap:2.5rem; transform:translateX(100%); transition:transform .4s cubic-bezier(.77,0,.18,1);
 }
@@ -1751,18 +1751,55 @@ export default function DentallApp() {
     document.head.appendChild(s);
   }, []);
 
-  /* ── Custom cursor ── */
+  /* ── Custom cursor (optimized) ── */
   useEffect(() => {
-    const move = e => setCursorPos({ x:e.clientX, y:e.clientY });
-    const over = e => { if (['BUTTON','A','INPUT','SELECT'].includes(e.target.tagName)) setCursorBig(true); };
-    const out  = () => setCursorBig(false);
-    window.addEventListener('mousemove', move);
-    document.addEventListener('mouseover', over);
-    document.addEventListener('mouseout', out);
+    let cursorDot = null;
+    let cursorRing = null;
+    let animationId = null;
+
+    const initCursor = () => {
+      cursorDot = document.querySelector('.dentall-cursor-dot');
+      cursorRing = document.querySelector('.dentall-cursor-ring');
+    };
+
+    const updateCursor = (e) => {
+      if (!cursorDot || !cursorRing) return;
+
+      // Use requestAnimationFrame for smooth updates
+      if (animationId) cancelAnimationFrame(animationId);
+      animationId = requestAnimationFrame(() => {
+        const x = e.clientX;
+        const y = e.clientY;
+        cursorDot.style.left = `${x - 5}px`;
+        cursorDot.style.top = `${y - 5}px`;
+        cursorRing.style.left = `${x - 16}px`;
+        cursorRing.style.top = `${y - 16}px`;
+      });
+    };
+
+    const handleMouseOver = (e) => {
+      if (['BUTTON', 'A', 'INPUT', 'SELECT'].includes(e.target.tagName)) {
+        setCursorBig(true);
+      }
+    };
+
+    const handleMouseOut = () => {
+      setCursorBig(false);
+    };
+
+    // Initialize after DOM is ready
+    const timer = setTimeout(initCursor, 100);
+
+    window.addEventListener('mousemove', updateCursor, { passive: true });
+    document.addEventListener('mouseover', handleMouseOver);
+    document.addEventListener('mouseout', handleMouseOut);
+
     return () => {
-      window.removeEventListener('mousemove', move);
-      document.removeEventListener('mouseover', over);
-      document.removeEventListener('mouseout', out);
+      clearTimeout(timer);
+      if (animationId) cancelAnimationFrame(animationId);
+      window.removeEventListener('mousemove', updateCursor);
+      document.removeEventListener('mouseover', handleMouseOver);
+      document.removeEventListener('mouseout', handleMouseOut);
     };
   }, []);
 
@@ -1859,10 +1896,11 @@ export default function DentallApp() {
     if (!pincode || pincode.length !== 6) return;
     setShippingLoading(true);
     try {
+      const totalWeight = cartItems.reduce((sum, item) => sum + (item.qty * 0.5), 0); // 0.5kg per brush
       const res  = await fetch('/api/shipping-cost', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ pincode, weight: 0.5 }),
+        body: JSON.stringify({ pincode, weight: totalWeight }),
       });
       const data = await res.json();
       setShippingCharge(data.shipping_charge ?? 0);
@@ -1880,10 +1918,11 @@ export default function DentallApp() {
   if (!pin || pin.length !== 6) return;
   setModalShipLoading(true);
   try {
+    const totalWeight = cartItems.reduce((sum, item) => sum + (item.qty * 0.5), 0); // 0.5kg per brush
     const res = await fetch('/api/shipping-cost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pincode: pin, weight: 0.5 }),
+      body: JSON.stringify({ pincode: pin, weight: totalWeight }),
     });
     const data = await res.json();
     setModalShipping({
@@ -2059,8 +2098,8 @@ export default function DentallApp() {
   /* ─── RENDER ─────────────────────────────────────────────────── */
   return (
     <>
-      <div className="dentall-cursor-dot"  style={{ left:cursorPos.x, top:cursorPos.y, width:cursorBig?18:10, height:cursorBig?18:10 }} />
-      <div className="dentall-cursor-ring" style={{ left:cursorPos.x, top:cursorPos.y }} />
+      <div className="dentall-cursor-dot" style={{ width: cursorBig ? 18 : 10, height: cursorBig ? 18 : 10 }} />
+      <div className="dentall-cursor-ring" />
 
       <div className={`dn-toast ${toast.show?'show':''}`}>{toast.msg}</div>
 

@@ -859,10 +859,10 @@ const BRUSH_COLORS = [
     label: 'Forest Green',
   },
   {
-    name: 'Midnight Black',
-    filter: 'grayscale(0.9) brightness(0.35)',
-    dot: '#2C2C2C',
-    label: 'Midnight Black',
+    name: 'Light Pink',
+    filter: 'hue-rotate(300deg) saturate(0.8) brightness(1.3)',
+    dot: '#F48FB1',
+    label: 'Light Pink',
   },
 ];
 

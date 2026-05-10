@@ -969,7 +969,7 @@ function BrushColorShowcase() {
         {BRUSH_COLORS.map((c, i) => (
           <img
             key={i}
-            src="image/green.png"
+            src="image/brush.png"
             alt={c.name}
             style={{
               position: 'absolute',

@@ -91,7 +91,7 @@ const css = `
 @keyframes pulseGlow    { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(1.08);opacity:1} }
  
 
-html { scroll-behavior:smooth; }
+html { scroll-behavior:auto; }
 body {
   background:var(--bg-main); color:var(--text-dark);
   font-family:'DM Sans',sans-serif; overflow-x:hidden;
@@ -104,9 +104,9 @@ body {
 
 @media(pointer:fine){
   body { cursor:none; }
-  .dentall-cursor-dot,.dentall-cursor-ring { pointer-events:none; position:fixed; border-radius:50%; z-index:9999; transform:translate(-50%,-50%); transition:width .2s,height .2s; }
-  .dentall-cursor-dot  { width:10px; height:10px; background:var(--grad-primary); box-shadow:0 0 10px var(--primary-muted); }
-  .dentall-cursor-ring { width:32px; height:32px; border:1.5px solid color-mix(in srgb,var(--primary) 50%,transparent); z-index:9999; transition:left .1s ease,top .1s ease; }
+  .dentall-cursor-dot,.dentall-cursor-ring { pointer-events:none; position:fixed; border-radius:50%; z-index:99999; transform:translate(-50%,-50%); will-change:transform; transition:width .15s ease-out; }
+  .dentall-cursor-dot  { width:10px; height:10px; background:var(--grad-primary); box-shadow:0 0 10px var(--primary-muted); z-index:99999; }
+  .dentall-cursor-ring { width:32px; height:32px; border:1.5px solid color-mix(in srgb,var(--primary) 50%,transparent); z-index:99998; }
   button,a,input { cursor:none !important; }
 }
 @media(pointer:coarse){ .dentall-cursor-dot,.dentall-cursor-ring { display:none; } }
@@ -567,6 +567,118 @@ body {
   .dn-pay-field-row { grid-template-columns:1fr; }
   .dn-tracking-section { padding:5rem 1.4rem; }
 }
+  /* ── Review Form ── */
+.dn-review-form-container {
+  margin: 3rem auto 0;
+  max-width: 640px;
+  background: var(--white);
+  border: 1.5px solid var(--border-mid);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(95,125,101,0.1);
+}
+.dn-review-form-header {
+  background: var(--grad-full);
+  padding: 1.8rem 2rem;
+}
+.dn-review-form-header h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #fff;
+  margin-bottom: .3rem;
+}
+.dn-review-form-header p {
+  font-size: .8rem;
+  color: rgba(255,255,255,.75);
+  line-height: 1.6;
+}
+.dn-review-form {
+  padding: 1.8rem 2rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+}
+.dn-review-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: .8rem;
+}
+.dn-review-field {
+  margin-bottom: .9rem;
+}
+.dn-review-field label {
+  display: block;
+  font-size: .65rem;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  font-weight: 700;
+  margin-bottom: .45rem;
+}
+.dn-review-field input,
+.dn-review-field textarea {
+  width: 100%;
+  background: var(--off-white);
+  border: 1.5px solid var(--border-mid);
+  color: var(--text-dark);
+  padding: .7rem 1rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .88rem;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color .25s, box-shadow .25s;
+  resize: vertical;
+}
+.dn-review-field input:focus,
+.dn-review-field textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-muted);
+}
+.dn-review-field input::placeholder,
+.dn-review-field textarea::placeholder {
+  color: var(--text-light);
+}
+.dn-rating-stars {
+  display: flex;
+  gap: .4rem;
+}
+.dn-star-btn {
+  background: none;
+  border: none;
+  font-size: 1.6rem;
+  color: var(--border-mid);
+  cursor: pointer;
+  transition: color .2s, transform .15s;
+  line-height: 1;
+  padding: 0;
+}
+.dn-star-btn.active { color: var(--warning); }
+.dn-star-btn:hover { transform: scale(1.15); }
+.dn-review-submit-btn {
+  width: 100%;
+  background: var(--grad-full);
+  color: #fff;
+  border: none;
+  padding: 1rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .88rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  border-radius: 30px;
+  margin-top: .8rem;
+  cursor: pointer;
+  transition: opacity .2s, transform .2s;
+  box-shadow: 0 6px 24px var(--primary-muted);
+}
+.dn-review-submit-btn:hover { opacity: .9; transform: translateY(-1px); }
+.dn-review-submit-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+@media(max-width:600px) {
+  .dn-review-form-row { grid-template-columns: 1fr; }
+  .dn-review-form-container { margin: 2rem 1rem 0; }
+}
 `;
 
 /* ─── CONSTANTS ────────────────────────────────────────────────── */
@@ -997,6 +1109,280 @@ function TrackingSection() {
   );
 }
 
+/* ─── SHIPMENT DETAILS PAGE ────────────────────────────────────── */
+function ShipmentPage({ onClose }) {
+  const [awbInput, setAwbInput]     = useState('');
+  const [orderInput, setOrderInput] = useState('');
+  const [data, setData]             = useState(null);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
+
+  // Auto-load from URL hash params
+  useEffect(() => {
+    const hash      = window.location.hash;
+    const queryPart = hash.includes('?') ? hash.split('?')[1] : '';
+    const params    = new URLSearchParams(queryPart);
+    const awb       = params.get('awb');
+    const order     = params.get('order');
+    if (awb)   { setAwbInput(awb);     fetchByAWB(awb); }
+    if (order) { setOrderInput(order); fetchByOrder(order); }
+  }, []);
+
+  const fetchByOrder = async (id) => {
+    if (!id) return;
+    setLoading(true); setError(''); setData(null);
+    try {
+      const res = await fetch(`/api/track/${id}`);
+      if (!res.ok) throw new Error('Order not found');
+      setData(await res.json());
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  const fetchByAWB = async (awb) => {
+    if (!awb) return;
+    setLoading(true); setError(''); setData(null);
+    try {
+      const res = await fetch(`/api/shipment/awb/${encodeURIComponent(awb)}`);
+      if (!res.ok) throw new Error('Shipment not found');
+      setData(await res.json());
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  const STATUS_STEPS = ['Ordered', 'Picked up', 'In transit', 'Out for delivery', 'Delivered'];
+  const STATUS_MAP   = {
+    'PICKUP SCHEDULED': 1, 'PICKUP GENERATED': 1,
+    'IN TRANSIT': 2,       'SHIPPED': 2,
+    'OUT FOR DELIVERY': 3,
+    'DELIVERED': 4,
+  };
+  const currentStep  = STATUS_MAP[(data?.shipment_status || '').toUpperCase()] ?? 0;
+  const isDelivered  = currentStep === 4;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9000,
+      background: 'var(--bg-main)',
+      overflowY: 'auto',
+      fontFamily: "'DM Sans', sans-serif",
+    }}>
+      {/* ── Header ── */}
+      <div style={{
+        background: 'linear-gradient(135deg, var(--primary), var(--primary-dark), var(--secondary))',
+        padding: '1.5rem 2rem',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        position: 'sticky', top: 0, zIndex: 10,
+        borderBottom: '2px solid rgba(255,255,255,0.15)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {onClose && (
+            <button onClick={onClose} style={{
+              background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff',
+              width: 36, height: 36, borderRadius: '50%', fontSize: '1rem', cursor: 'pointer',
+            }}>←</button>
+          )}
+          <div>
+            <div style={{ fontSize: '.65rem', letterSpacing: '.25em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)', marginBottom: 2 }}>Dentall</div>
+            <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', fontWeight: 900, color: '#fff' }}>Shipment Details</div>
+          </div>
+        </div>
+        <div style={{ fontSize: '1.5rem' }}>📦</div>
+      </div>
+
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '2rem 1.5rem' }}>
+
+        {/* ── Search bar ── */}
+        <div style={{
+          background: 'var(--white)', border: '1px solid var(--border-light)',
+          borderRadius: 12, padding: '1.5rem', marginBottom: '1.5rem',
+          boxShadow: 'var(--shadow-soft)',
+        }}>
+          <div style={{ fontSize: '.65rem', letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--text-light)', fontWeight: 700, marginBottom: '1rem' }}>
+            Track your shipment
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700, marginBottom: '.4rem' }}>
+                Order ID
+              </label>
+              <div style={{ display: 'flex', gap: '.5rem' }}>
+                <input
+                  value={orderInput}
+                  onChange={e => setOrderInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="e.g. 42"
+                  onKeyDown={e => e.key === 'Enter' && fetchByOrder(orderInput)}
+                  style={{ flex: 1, background: 'var(--off-white)', border: '1.5px solid var(--border-mid)', color: 'var(--text-dark)', padding: '.65rem .9rem', fontFamily: "'DM Sans',sans-serif", fontSize: '.86rem', borderRadius: 8, outline: 'none' }}
+                />
+                <button
+                  onClick={() => fetchByOrder(orderInput)}
+                  disabled={loading || !orderInput}
+                  style={{ background: 'linear-gradient(135deg,var(--primary),var(--primary-dark))', color: '#fff', border: 'none', padding: '.65rem 1rem', borderRadius: 8, fontFamily: "'DM Sans',sans-serif", fontSize: '.78rem', fontWeight: 700, cursor: 'pointer', opacity: (!orderInput || loading) ? 0.5 : 1 }}>
+                  Track
+                </button>
+              </div>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700, marginBottom: '.4rem' }}>
+                AWB / Tracking No.
+              </label>
+              <div style={{ display: 'flex', gap: '.5rem' }}>
+                <input
+                  value={awbInput}
+                  onChange={e => setAwbInput(e.target.value)}
+                  placeholder="e.g. SR1234567"
+                  onKeyDown={e => e.key === 'Enter' && fetchByAWB(awbInput)}
+                  style={{ flex: 1, background: 'var(--off-white)', border: '1.5px solid var(--border-mid)', color: 'var(--text-dark)', padding: '.65rem .9rem', fontFamily: "'DM Sans',sans-serif", fontSize: '.86rem', borderRadius: 8, outline: 'none' }}
+                />
+                <button
+                  onClick={() => fetchByAWB(awbInput)}
+                  disabled={loading || !awbInput}
+                  style={{ background: 'linear-gradient(135deg,var(--primary),var(--primary-dark))', color: '#fff', border: 'none', padding: '.65rem 1rem', borderRadius: 8, fontFamily: "'DM Sans',sans-serif", fontSize: '.78rem', fontWeight: 700, cursor: 'pointer', opacity: (!awbInput || loading) ? 0.5 : 1 }}>
+                  Track
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Loading ── */}
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-light)' }}>
+            <div style={{ width: 40, height: 40, border: '3px solid var(--border-mid)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin .7s linear infinite', margin: '0 auto 1rem' }} />
+            Fetching shipment data from Shiprocket…
+          </div>
+        )}
+
+        {/* ── Error ── */}
+        {error && (
+          <div style={{ background: 'rgba(255,61,87,.06)', border: '1px solid rgba(255,61,87,.2)', borderRadius: 8, padding: '1rem 1.2rem', color: 'var(--text-dark)', fontSize: '.85rem', marginBottom: '1rem' }}>
+            ⚠ {error}
+          </div>
+        )}
+
+        {/* ── Results ── */}
+        {data && !loading && (
+          <>
+            {/* Status card */}
+            <div style={{
+              background: isDelivered
+                ? 'linear-gradient(135deg, rgba(0,212,180,.08), rgba(0,212,180,.03))'
+                : 'linear-gradient(135deg, var(--primary-muted), rgba(67,85,99,.04))',
+              border: `1px solid ${isDelivered ? 'rgba(0,212,180,.3)' : 'var(--border-mid)'}`,
+              borderRadius: 12, padding: '1.5rem', marginBottom: '1rem',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div>
+                  <div style={{ fontSize: '.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 4 }}>
+                    Order #{data.order_id || orderInput}
+                  </div>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-dark)', marginBottom: 4 }}>
+                    AWB: {data.awb_code || '—'}
+                  </div>
+                  {data.courier_name && (
+                    <div style={{ fontSize: '.8rem', color: 'var(--text-mid)' }}>via {data.courier_name}</div>
+                  )}
+                </div>
+                <div style={{
+                  background: isDelivered ? 'rgba(0,212,180,.12)' : 'var(--primary-muted)',
+                  border: `1px solid ${isDelivered ? 'rgba(0,212,180,.3)' : 'var(--primary-muted)'}`,
+                  color: isDelivered ? 'var(--success)' : 'var(--primary-dark)',
+                  fontSize: '.72rem', fontWeight: 700, letterSpacing: '.1em',
+                  textTransform: 'uppercase', padding: '.45rem 1rem', borderRadius: 20,
+                }}>
+                  {isDelivered ? '✓ Delivered' : (data.shipment_status || 'Processing')}
+                </div>
+              </div>
+
+              {/* Progress steps */}
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {STATUS_STEPS.map((step, i, arr) => {
+                  const done   = i < currentStep;
+                  const active = i === currentStep;
+                  return (
+                    <React.Fragment key={step}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                        <div style={{
+                          width: 28, height: 28, borderRadius: '50%',
+                          background: done ? 'var(--success)' : active ? 'var(--primary)' : 'var(--white)',
+                          border: `2px solid ${done ? 'var(--success)' : active ? 'var(--primary)' : 'var(--border-mid)'}`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '.7rem', color: (done || active) ? '#fff' : 'var(--text-light)',
+                          marginBottom: '.4rem', fontWeight: 700,
+                          boxShadow: active ? '0 0 0 4px var(--primary-muted)' : 'none',
+                        }}>
+                          {done ? '✓' : i + 1}
+                        </div>
+                        <div style={{ fontSize: '.55rem', color: (done || active) ? 'var(--text-dark)' : 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.06em', textAlign: 'center', fontWeight: (done || active) ? 600 : 400, lineHeight: 1.3 }}>
+                          {step}
+                        </div>
+                      </div>
+                      {i < arr.length - 1 && (
+                        <div style={{ flex: 1, height: 2, background: done ? 'var(--success)' : 'var(--border-mid)', marginTop: '-1.2rem', transition: 'background .3s' }} />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Shipment meta grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: '1rem', marginBottom: '1rem' }}>
+              {[
+                { label: 'Courier', value: data.courier_name || '—' },
+                { label: 'Estimated delivery', value: data.etd || '—' },
+                { label: 'Order date', value: data.order_date ? new Date(data.order_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' },
+                { label: 'Customer', value: data.customer_name || '—' },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ background: 'var(--white)', border: '1px solid var(--border-light)', borderRadius: 10, padding: '1rem' }}>
+                  <div style={{ fontSize: '.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: '.9rem', fontWeight: 600, color: 'var(--text-dark)' }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Activity timeline */}
+            {data.tracking_data?.length > 0 && (
+              <div style={{ background: 'var(--white)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '1.5rem' }}>
+                <div style={{ fontSize: '.65rem', letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--text-light)', fontWeight: 700, marginBottom: '1.2rem' }}>
+                  Activity log
+                </div>
+                <div>
+                  {data.tracking_data.map((ev, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '1rem', paddingBottom: i < data.tracking_data.length - 1 ? '1rem' : 0 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 16, flexShrink: 0 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: i === 0 ? 'var(--primary)' : 'var(--border-mid)', marginTop: 4, flexShrink: 0 }} />
+                        {i < data.tracking_data.length - 1 && (
+                          <div style={{ width: 1, flex: 1, background: 'var(--border-light)', marginTop: 4 }} />
+                        )}
+                      </div>
+                      <div style={{ paddingBottom: i < data.tracking_data.length - 1 ? '0.5rem' : 0 }}>
+                        <div style={{ fontSize: '.85rem', fontWeight: i === 0 ? 600 : 400, color: i === 0 ? 'var(--text-dark)' : 'var(--text-mid)', marginBottom: 2 }}>
+                          {ev.activity || ev.status}
+                        </div>
+                        <div style={{ fontSize: '.72rem', color: 'var(--text-light)' }}>
+                          {ev.date}{ev.location ? ` — ${ev.location}` : ''}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {!data && !loading && !error && (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-light)' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: .4 }}>📦</div>
+            <div style={{ fontSize: '.88rem' }}>Enter your Order ID or AWB number above to see live shipment details from Shiprocket</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── APP ──────────────────────────────────────────────────────── */
 export default function DentallApp() {
   const [cursorPos, setCursorPos]     = useState({ x:-100, y:-100 });
@@ -1043,6 +1429,10 @@ export default function DentallApp() {
   const [modalShipping, setModalShipping]       = useState(null);
   const [modalShipLoading, setModalShipLoading] = useState(false);
 
+  /* ── Review form ── */
+  const [reviewForm, setReviewForm] = useState({ name:'', email:'', city:'', rating:0, review:'' });
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
   const packPrice = selectedPack === 'family' ? FAMILY_PACK_PRICE : SINGLE_PRICE;
   const cartSubtotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
   const cartShipping = modalShipping?.charge ?? 0;
@@ -1052,6 +1442,9 @@ export default function DentallApp() {
   const [leadPopup, setLeadPopup] = useState(false);
   const [leadForm, setLeadForm]   = useState({ name:'', email:'', phone:'' });
   const [leadSent, setLeadSent]   = useState(false);
+
+  const [showShipment, setShowShipment] = useState(false);
+  const [liveReviews, setLiveReviews] = useState([]);
 
   /* ── inject CSS ── */
   useEffect(() => {
@@ -1091,7 +1484,11 @@ export default function DentallApp() {
 
   /* ── Custom cursor ── */
   useEffect(() => {
-    const move = e => setCursorPos({ x:e.clientX, y:e.clientY });
+    let rafId = null;
+    const move = e => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => setCursorPos({ x:e.clientX, y:e.clientY }));
+    };
     const over = e => { if (['BUTTON','A','INPUT','SELECT'].includes(e.target.tagName)) setCursorBig(true); };
     const out  = () => setCursorBig(false);
     window.addEventListener('mousemove', move);
@@ -1101,11 +1498,13 @@ export default function DentallApp() {
       window.removeEventListener('mousemove', move);
       document.removeEventListener('mouseover', over);
       document.removeEventListener('mouseout', out);
+      if (rafId) cancelAnimationFrame(rafId);
     };
   }, []);
 
   /* ── Scroll stage ── */
   useEffect(() => {
+    let rafId = null;
     const onScroll = () => {
       const stage = scrollStageRef.current;
       if (!stage) return;
@@ -1155,9 +1554,16 @@ export default function DentallApp() {
       setActiveRings(rings); setPhaseIdx(phase); setDotIdx(dot);
       setVisiblePanels(panels); setMobilePanelPhase(mobilePhase);
     };
-    window.addEventListener('scroll', onScroll, { passive:true });
+    const handleScroll = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(onScroll);
+    };
+    window.addEventListener('scroll', handleScroll, { passive:true });
     onScroll();
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   /* ── Intersection observer for feat cards ── */
@@ -1389,6 +1795,33 @@ export default function DentallApp() {
     setShowPayment(true);
   };
 
+  /* ── Review submission ── */
+  const handleReviewSubmit = async (e) => {
+  e.preventDefault();
+  if (reviewSubmitting) return;
+  const { name, city, rating, review } = reviewForm;
+  if (!name.trim() || rating < 1 || rating > 5 || !review.trim()) {
+    showToast('Please fill in your name, a rating, and a review.');
+    return;
+  }
+  setReviewSubmitting(true);
+  // Optimistically inject into the live marquee immediately
+  setLiveReviews(prev => [{ text: review.trim(), author: name.trim(), city: city.trim() || 'India', rating, isNew: true }, ...prev]);
+  try {
+    await fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim(), email: reviewForm.email.trim(), rating, review: review.trim() }),
+    });
+    showToast('Thank you! Your review is now live in the carousel above.');
+    setReviewForm({ name:'', email:'', city:'', rating:0, review:'' });
+  } catch {
+    showToast('Something went wrong. Please try again.');
+  } finally {
+    setReviewSubmitting(false);
+  }
+};
+
   const scrollTo = id => {
     document.getElementById(id)?.scrollIntoView({ behavior:'smooth' });
     setDrawerOpen(false);
@@ -1503,7 +1936,7 @@ const inputStyle = {
         <div className="dn-nav-links">
           <a href="#features-grid" onClick={e=>{e.preventDefault();scrollTo('features-grid')}}>Features</a>
           <a href="#social"        onClick={e=>{e.preventDefault();scrollTo('social')}}>Reviews</a>
-          <a href="#tracking"      onClick={e=>{e.preventDefault();scrollTo('tracking')}}>Track</a>
+          <a href="#shipment"      onClick={e=>{e.preventDefault();setShowShipment(true)}}>Shipment</a>
           <a href="#order"         onClick={e=>{e.preventDefault();scrollTo('order')}}>Order</a>
           <button className="dn-cart-btn" onClick={()=>setCartOpen(o=>!o)}>
             🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
@@ -1518,7 +1951,7 @@ const inputStyle = {
       <div className={`dn-drawer ${drawerOpen?'open':''}`}>
         <a href="#features-grid" onClick={e=>{e.preventDefault();scrollTo('features-grid')}}>Features</a>
         <a href="#social"        onClick={e=>{e.preventDefault();scrollTo('social')}}>Reviews</a>
-        <a href="#tracking"      onClick={e=>{e.preventDefault();scrollTo('tracking')}}>Track Order</a>
+        <a href="#shipment"      onClick={e=>{e.preventDefault();setShowShipment(true);setDrawerOpen(false)}}>Shipment</a>
         <a href="#order"         onClick={e=>{e.preventDefault();scrollTo('order')}}>Order</a>
         <button className="dn-cart-btn" style={{fontSize:'1rem',padding:'.8rem 2rem'}} onClick={()=>{setDrawerOpen(false);setCartOpen(true);}}>
           🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
@@ -1697,13 +2130,17 @@ const inputStyle = {
         </div>
         <div className="dn-reviews-track-wrapper">
           <div className="dn-reviews-scroll-track">
-            {[...REVIEWS,...REVIEWS,...REVIEWS].map((r,i)=>(
-              <div key={i} className="dn-review-card">
-                <div className="dn-stars">★★★★★</div>
-                <div className="dn-review-text">"{r.text}"</div>
-                <div className="dn-review-author">{r.author} <span style={{color:'var(--text-light)',fontWeight:400}}>— {r.city}</span></div>
-              </div>
-            ))}
+            {[...liveReviews, ...REVIEWS, ...liveReviews, ...REVIEWS].map((r, i) => (
+                <div key={i} className="dn-review-card">
+                  <div className="dn-stars">{'★'.repeat(r.rating || 5)}{'☆'.repeat(5 - (r.rating || 5))}</div>
+                  <div className="dn-review-text">"{r.text}"</div>
+                  <div className="dn-review-author">
+                    {r.author}
+                    {r.isNew && <span style={{background:'var(--grad-primary)',color:'#fff',fontSize:'.52rem',fontWeight:700,padding:'.18rem .5rem',borderRadius:10,marginLeft:'.4rem',verticalAlign:'middle'}}>New</span>}
+                    {' '}<span style={{color:'var(--text-light)',fontWeight:400}}>— {r.city || ''}</span>
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
         <div className="dn-stats-row">
@@ -1714,10 +2151,72 @@ const inputStyle = {
             </div>
           ))}
         </div>
+
+        {/* Review Form */}
+        <div className="dn-review-form-container">
+          <div className="dn-review-form-header">
+            <h3>Share Your Experience</h3>
+            <p>Your feedback helps us improve and helps other customers make informed decisions.</p>
+          </div>
+          <form className="dn-review-form" onSubmit={handleReviewSubmit}>
+            <div className="dn-review-form-row">
+              <div className="dn-review-field">
+    <label>Name *</label>
+    <input type="text" value={reviewForm.name}
+      onChange={e => setReviewForm({...reviewForm, name: e.target.value})}
+      placeholder="Arjun Sharma" />
+  </div>
+  <div className="dn-review-field">
+    <label>City</label>
+    <input type="text" value={reviewForm.city}
+      onChange={e => setReviewForm({...reviewForm, city: e.target.value})}
+      placeholder="Chennai" />
+  </div>
+              <div className="dn-review-field">
+                <label>Email *</label>
+                <input
+                  type="email"
+                  value={reviewForm.email}
+                  onChange={(e) => setReviewForm({...reviewForm, email: e.target.value})}
+                  placeholder="your.email@example.com"
+                  required
+                />
+              </div>
+            </div>
+            <div className="dn-review-field">
+              <label>Rating *</label>
+              <div className="dn-rating-stars">
+                {[1,2,3,4,5].map(star => (
+                  <button
+                    key={star}
+                    type="button"
+                    className={`dn-star-btn ${reviewForm.rating >= star ? 'active' : ''}`}
+                    onClick={() => setReviewForm({...reviewForm, rating: star})}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="dn-review-field">
+              <label>Your Review *</label>
+              <textarea
+                value={reviewForm.review}
+                onChange={(e) => setReviewForm({...reviewForm, review: e.target.value})}
+                placeholder="Tell us about your experience with DENTALL brushes..."
+                rows="4"
+                required
+              />
+            </div>
+            <button type="submit" className="dn-review-submit-btn" disabled={reviewSubmitting}>
+              {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+            </button>
+          </form>
+        </div>
       </section>
 
       {/* ── Tracking ── */}
-      <TrackingSection />
+      {/* <TrackingSection /> */}
 
       {/* ── Order ── */}
       <section className="dn-order" id="order">
@@ -1886,7 +2385,10 @@ const inputStyle = {
                     </div>
                   </div>
                 )}
-                <button className="dn-pay-done-btn" onClick={()=>{closePayment();scrollTo('tracking');}}>Track My Order →</button>
+                <button className="dn-pay-done-btn" onClick={() => {
+                  closePayment();
+                  setShowShipment(true);
+                }}>View Shipment Details →</button>
               </div>
             ) : (
               <div className="dn-pay-body">
@@ -2005,7 +2507,10 @@ const inputStyle = {
         maxWidth: '420px',
         overflow: 'hidden',
         boxShadow: '0 32px 80px rgba(0,0,0,.3)',
-        margin: '1rem'
+        margin: '1rem',
+        pointerEvents: 'all',
+        position: 'relative',
+        zIndex: 10001
       }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -2119,6 +2624,8 @@ const inputStyle = {
           </div>
         </div>
       )}
+
+      {showShipment && <ShipmentPage onClose={() => setShowShipment(false)} />}
 
     </>
   );

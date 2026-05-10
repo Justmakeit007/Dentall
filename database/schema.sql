@@ -40,3 +40,16 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at DATETIME,
    UNIQUE KEY uniq_email (email)
  );
+
+CREATE TABLE IF NOT EXISTS reviews (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  customer_name VARCHAR(255) NOT NULL,
+  email        VARCHAR(255) NOT NULL,
+  rating       TINYINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  review_text  TEXT NOT NULL,
+  approved     BOOLEAN DEFAULT FALSE,
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_email (email),
+  INDEX idx_approved (approved),
+  INDEX idx_created (created_at)
+);

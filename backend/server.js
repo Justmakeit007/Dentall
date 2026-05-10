@@ -193,9 +193,9 @@ app.post(
 
 // JSON body parser for all other routes (4KB limit — prevents payload bombs)
 app.use(express.json({ limit: '4kb' }));
-
 // Serve React build in production
 app.use(express.static(path.join(__dirname, '../dist')));
+
 
 // ============================================================
 //  STEP 5 — RATE LIMITERS
@@ -363,24 +363,24 @@ async function generateReceiptPDF(customer, orderData) {
     doc.on('end',   () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    // Header
-    doc.rect(0, 0, 612, 100).fill('var(--primary)');
+    // ── Header bar — sage green ──
+    doc.rect(0, 0, 612, 100).fill('#5F7D65');
     doc.fillColor('#fff').font('Helvetica-Bold').fontSize(28).text('DENTALL', 50, 30);
     doc.font('Helvetica').fontSize(10).text('Professional Dental Care', 50, 65);
-    doc.fillColor('#fff').fontSize(10).text('RECEIPT', 490, 45, { align: 'right' });
+    doc.fillColor('rgba(255,255,255,0.8)').fontSize(10).text('RECEIPT', 490, 45, { align: 'right' });
 
-    // Order Info
-    doc.rect(50, 120, 512, 80).fill('#FFF3E8');
-    doc.fillColor('var(--primary)').font('Helvetica-Bold').fontSize(11)
+    // ── Order info box — pale green ──
+    doc.rect(50, 120, 512, 80).fill('#F2F6EC');
+    doc.fillColor('#5F7D65').font('Helvetica-Bold').fontSize(11)
        .text(`Order ID: DNT-${orderData.orderId}`, 65, 135);
-    doc.fillColor('#4A2C10').font('Helvetica').fontSize(10)
+    doc.fillColor('#2D3B34').font('Helvetica').fontSize(10)
        .text(`Payment: ${orderData.razorpay_payment_id.slice(0, 8)}****`, 65, 153)
        .text(`Date: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`, 65, 170)
        .text(`AWB: ${orderData.awb?.awb_code || 'Processing'}`, 300, 153);
 
-    // Customer
-    doc.fillColor('#1C0D02').font('Helvetica-Bold').fontSize(12).text('Bill To:', 50, 220);
-    doc.font('Helvetica').fontSize(10).fillColor('#4A2C10')
+    // ── Customer section ──
+    doc.fillColor('#2D3B34').font('Helvetica-Bold').fontSize(12).text('Bill To:', 50, 220);
+    doc.font('Helvetica').fontSize(10).fillColor('#5F6F63')
        .text(customer.name,    50, 238)
        .text(customer.email,   50, 253)
        .text(customer.phone,   50, 268)
@@ -388,16 +388,16 @@ async function generateReceiptPDF(customer, orderData) {
        .text(`${customer.city} - ${customer.pincode}`, 50, 298)
        .text(`${customer.state}, India`, 50, 313);
 
-    // Table header
-    doc.rect(50, 340, 512, 25).fill('#3B1A08');
+    // ── Table header — dark secondary ──
+    doc.rect(50, 340, 512, 25).fill('#435563');
     doc.fillColor('#fff').font('Helvetica-Bold').fontSize(10)
        .text('Item', 65, 349).text('Qty', 380, 349).text('Price', 430, 349).text('Total', 490, 349);
 
-    // Items
+    // ── Items ──
     let y = 375;
     orderData.cartItems.forEach((item, i) => {
-      if (i % 2 === 0) doc.rect(50, y - 5, 512, 22).fill('#FFF6EA');
-      doc.fillColor('#1C0D02').font('Helvetica').fontSize(10)
+      if (i % 2 === 0) doc.rect(50, y - 5, 512, 22).fill('#F8FAF4');
+      doc.fillColor('#2D3B34').font('Helvetica').fontSize(10)
          .text(item.name, 65, y)
          .text(String(item.qty), 385, y)
          .text(`Rs.${item.price.toLocaleString('en-IN')}`, 430, y)
@@ -405,22 +405,22 @@ async function generateReceiptPDF(customer, orderData) {
       y += 25;
     });
 
-    // Totals
+    // ── Totals ──
     y += 10;
-    doc.moveTo(50, y).lineTo(562, y).strokeColor('#E8D5B0').lineWidth(1).stroke();
+    doc.moveTo(50, y).lineTo(562, y).strokeColor('#C8D6BE').lineWidth(1).stroke();
     y += 15;
-    doc.fillColor('#4A2C10').font('Helvetica').fontSize(10)
+    doc.fillColor('#5F6F63').font('Helvetica').fontSize(10)
        .text('Shipping:', 400, y)
        .text(orderData.shippingCharge === 0 ? 'FREE' : `Rs.${orderData.shippingCharge}`, 490, y);
     y += 20;
-    doc.rect(380, y - 5, 182, 28).fill('var(--primary)');
+    doc.rect(380, y - 5, 182, 28).fill('#90AB8B');
     doc.fillColor('#fff').font('Helvetica-Bold').fontSize(13)
        .text('TOTAL:', 390, y + 2)
        .text(`Rs.${orderData.totalAmount.toLocaleString('en-IN')}`, 455, y + 2);
 
-    // Footer
-    doc.rect(0, 750, 612, 92).fill('#F5EDDC');
-    doc.fillColor('#8A6040').font('Helvetica').fontSize(9)
+    // ── Footer ──
+    doc.rect(0, 750, 612, 92).fill('#F2F6EC');
+    doc.fillColor('#5F6F63').font('Helvetica').fontSize(9)
        .text('Thank you for choosing DENTALL!', 50, 762, { align: 'center', width: 512 })
        .text('Replace your brush every 4 months for best results.', 50, 777, { align: 'center', width: 512 })
        .text('Questions? support@dentall.in', 50, 792, { align: 'center', width: 512 })
@@ -880,6 +880,31 @@ app.get('/api/track/:orderId', async (req, res) => {
 });
 
 // ============================================================
+//  ROUTE: GET /api/shipment/awb/:awbNumber
+//  Track directly by AWB number
+// ============================================================
+app.get('/api/shipment/awb/:awbNumber', async (req, res) => {
+  const awb = sanitizeStr(req.params.awbNumber, 50).replace(/[^a-zA-Z0-9\-]/g, '');
+  if (!awb) return res.status(400).json({ error: 'Invalid AWB number' });
+
+  if (USE_MOCK) {
+    return res.json(mockTrackingData(awb, 'N/A'));
+  }
+
+  try {
+    const token    = await getShiprocketToken();
+    const { data } = await axios.get(
+      `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
+      { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }
+    );
+    res.json(data.tracking_data || {});
+  } catch (e) {
+    console.error('AWB tracking error:', e.response?.data || e.message);
+    res.status(500).json({ error: 'Could not fetch tracking info for this AWB' });
+  }
+});
+
+// ============================================================
 //  ROUTE: GET /api/orders
 //  Simple order list — MUST be protected by auth in production.
 //  Add your admin auth middleware before going live.
@@ -990,7 +1015,6 @@ app.post('/api/capture-lead', leadLimiter, async (req, res) => {
     res.json({ success: true });
   }
 });
-
 // ============================================================
 //  GLOBAL ERROR HANDLER
 //  Catches unhandled errors and never leaks stack traces.
@@ -1002,6 +1026,52 @@ app.use((err, req, res, _next) => {
     error: IS_PROD ? 'An unexpected error occurred. Please try again.' : err.message,
   });
 });
+
+// ============================================================
+//  ROUTE: POST /api/reviews
+//  Saves customer reviews for approval and display.
+// ============================================================
+app.post('/api/reviews', leadLimiter, async (req, res) => {
+  const { name, email, rating, review } = req.body;
+
+  // Sanitize and validate inputs
+  const customerName = sanitizeStr(name, 255);
+  const customerEmail = sanitizeStr(email, 255).toLowerCase();
+  const customerRating = safeInt(rating, 1, 5);
+  const reviewText = sanitizeStr(review, 2000); // reasonable limit for reviews
+
+  if (!customerName) {
+    return res.status(400).json({ error: 'Name is required' });
+  }
+  if (!isValidEmail(customerEmail)) {
+    return res.status(400).json({ error: 'Valid email address required' });
+  }
+  if (customerRating < 1 || customerRating > 5) {
+    return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+  }
+  if (!reviewText || reviewText.length < 10) {
+    return res.status(400).json({ error: 'Review must be at least 10 characters long' });
+  }
+
+  try {
+    await db.execute(
+      `INSERT INTO reviews (customer_name, email, rating, review_text, approved, created_at)
+       VALUES (?, ?, ?, ?, FALSE, NOW())`,
+      [customerName, customerEmail, customerRating, reviewText]
+    );
+
+    console.log(`✅ Review submitted by ${customerEmail.replace(/(.{2}).+(@.+)/, '$1****$2')}`);
+    res.json({ success: true, message: 'Thank you for your review! It will be published after approval.' });
+  } catch (e) {
+    console.error('Review submission failed:', e.message);
+    res.status(500).json({ error: 'Could not submit review. Please try again.' });
+  }
+});
+
+// ============================================================
+//  Serve React build in production (after API routes)
+// ============================================================
+app.use(express.static(path.join(__dirname, '../dist')));
 
 // ── Catch-all: serve React SPA for all non-API routes ──
 app.use((req, res) => {

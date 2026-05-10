@@ -46,7 +46,7 @@ const path       = require('path');
 const helmet     = require('helmet');
 const rateLimit  = require('express-rate-limit');
 const PDFDocument = require('pdfkit');
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 // ============================================================
 //  STEP 1 — FAIL FAST: validate all required env vars on boot
@@ -181,7 +181,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-secret'],
 }));
 
 // ── Webhook route MUST receive raw body before JSON middleware ──
@@ -256,10 +256,34 @@ const db = mysql.createPool({
 });
 
 db.getConnection()
-  .then(conn => { console.log('✅ MySQL connected'); conn.release(); })
+  .then(async conn => {
+    console.log('✅ MySQL connected');
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS reviews (
+        id            INT AUTO_INCREMENT PRIMARY KEY,
+        customer_name VARCHAR(255) NOT NULL,
+        email         VARCHAR(255) NOT NULL,
+        rating        TINYINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        review_text   TEXT NOT NULL,
+        approved      BOOLEAN DEFAULT FALSE,
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_email    (email),
+        INDEX idx_approved (approved),
+        INDEX idx_created  (created_at)
+      )
+    `);
+    // approve any reviews submitted before auto-approve was enabled
+    const [migrated] = await conn.execute(
+      'UPDATE reviews SET approved = TRUE WHERE approved = FALSE'
+    );
+    if (migrated.affectedRows > 0)
+      console.log(`✅ Approved ${migrated.affectedRows} existing review(s)`);
+    console.log('✅ reviews table ready');
+    conn.release();
+  })
   .catch(err  => {
     console.error('❌ MySQL connection failed:', err.message);
-    if (IS_PROD) process.exit(1); // fatal in production
+    if (IS_PROD) process.exit(1);
   });
 
 // ============================================================
@@ -363,24 +387,24 @@ async function generateReceiptPDF(customer, orderData) {
     doc.on('end',   () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    // Header
-    doc.rect(0, 0, 612, 100).fill('var(--primary)');
+    // ── Header bar — sage green ──
+    doc.rect(0, 0, 612, 100).fill('#5F7D65');
     doc.fillColor('#fff').font('Helvetica-Bold').fontSize(28).text('DENTALL', 50, 30);
     doc.font('Helvetica').fontSize(10).text('Professional Dental Care', 50, 65);
-    doc.fillColor('#fff').fontSize(10).text('RECEIPT', 490, 45, { align: 'right' });
+    doc.fillColor('rgba(255,255,255,0.8)').fontSize(10).text('RECEIPT', 490, 45, { align: 'right' });
 
-    // Order Info
-    doc.rect(50, 120, 512, 80).fill('#FFF3E8');
-    doc.fillColor('var(--primary)').font('Helvetica-Bold').fontSize(11)
+    // ── Order info box — pale green ──
+    doc.rect(50, 120, 512, 80).fill('#F2F6EC');
+    doc.fillColor('#5F7D65').font('Helvetica-Bold').fontSize(11)
        .text(`Order ID: DNT-${orderData.orderId}`, 65, 135);
-    doc.fillColor('#4A2C10').font('Helvetica').fontSize(10)
+    doc.fillColor('#2D3B34').font('Helvetica').fontSize(10)
        .text(`Payment: ${orderData.razorpay_payment_id.slice(0, 8)}****`, 65, 153)
        .text(`Date: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`, 65, 170)
        .text(`AWB: ${orderData.awb?.awb_code || 'Processing'}`, 300, 153);
 
-    // Customer
-    doc.fillColor('#1C0D02').font('Helvetica-Bold').fontSize(12).text('Bill To:', 50, 220);
-    doc.font('Helvetica').fontSize(10).fillColor('#4A2C10')
+    // ── Customer section ──
+    doc.fillColor('#2D3B34').font('Helvetica-Bold').fontSize(12).text('Bill To:', 50, 220);
+    doc.font('Helvetica').fontSize(10).fillColor('#5F6F63')
        .text(customer.name,    50, 238)
        .text(customer.email,   50, 253)
        .text(customer.phone,   50, 268)
@@ -388,16 +412,16 @@ async function generateReceiptPDF(customer, orderData) {
        .text(`${customer.city} - ${customer.pincode}`, 50, 298)
        .text(`${customer.state}, India`, 50, 313);
 
-    // Table header
-    doc.rect(50, 340, 512, 25).fill('#3B1A08');
+    // ── Table header — dark secondary ──
+    doc.rect(50, 340, 512, 25).fill('#435563');
     doc.fillColor('#fff').font('Helvetica-Bold').fontSize(10)
        .text('Item', 65, 349).text('Qty', 380, 349).text('Price', 430, 349).text('Total', 490, 349);
 
-    // Items
+    // ── Items ──
     let y = 375;
     orderData.cartItems.forEach((item, i) => {
-      if (i % 2 === 0) doc.rect(50, y - 5, 512, 22).fill('#FFF6EA');
-      doc.fillColor('#1C0D02').font('Helvetica').fontSize(10)
+      if (i % 2 === 0) doc.rect(50, y - 5, 512, 22).fill('#F8FAF4');
+      doc.fillColor('#2D3B34').font('Helvetica').fontSize(10)
          .text(item.name, 65, y)
          .text(String(item.qty), 385, y)
          .text(`Rs.${item.price.toLocaleString('en-IN')}`, 430, y)
@@ -405,22 +429,22 @@ async function generateReceiptPDF(customer, orderData) {
       y += 25;
     });
 
-    // Totals
+    // ── Totals ──
     y += 10;
-    doc.moveTo(50, y).lineTo(562, y).strokeColor('#E8D5B0').lineWidth(1).stroke();
+    doc.moveTo(50, y).lineTo(562, y).strokeColor('#C8D6BE').lineWidth(1).stroke();
     y += 15;
-    doc.fillColor('#4A2C10').font('Helvetica').fontSize(10)
+    doc.fillColor('#5F6F63').font('Helvetica').fontSize(10)
        .text('Shipping:', 400, y)
        .text(orderData.shippingCharge === 0 ? 'FREE' : `Rs.${orderData.shippingCharge}`, 490, y);
     y += 20;
-    doc.rect(380, y - 5, 182, 28).fill('var(--primary)');
+    doc.rect(380, y - 5, 182, 28).fill('#90AB8B');
     doc.fillColor('#fff').font('Helvetica-Bold').fontSize(13)
        .text('TOTAL:', 390, y + 2)
        .text(`Rs.${orderData.totalAmount.toLocaleString('en-IN')}`, 455, y + 2);
 
-    // Footer
-    doc.rect(0, 750, 612, 92).fill('#F5EDDC');
-    doc.fillColor('#8A6040').font('Helvetica').fontSize(9)
+    // ── Footer ──
+    doc.rect(0, 750, 612, 92).fill('#F2F6EC');
+    doc.fillColor('#5F6F63').font('Helvetica').fontSize(9)
        .text('Thank you for choosing DENTALL!', 50, 762, { align: 'center', width: 512 })
        .text('Replace your brush every 4 months for best results.', 50, 777, { align: 'center', width: 512 })
        .text('Questions? support@dentall.in', 50, 792, { align: 'center', width: 512 })
@@ -880,6 +904,31 @@ app.get('/api/track/:orderId', async (req, res) => {
 });
 
 // ============================================================
+//  ROUTE: GET /api/shipment/awb/:awbNumber
+//  Track directly by AWB number.
+// ============================================================
+app.get('/api/shipment/awb/:awbNumber', async (req, res) => {
+  const awb = sanitizeStr(req.params.awbNumber, 50).replace(/[^a-zA-Z0-9\-]/g, '');
+  if (!awb) return res.status(400).json({ error: 'Invalid AWB number' });
+
+  if (USE_MOCK) {
+    return res.json(mockTrackingData(awb, 'N/A'));
+  }
+
+  try {
+    const token    = await getShiprocketToken();
+    const { data } = await axios.get(
+      `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
+      { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }
+    );
+    res.json(data.tracking_data || {});
+  } catch (e) {
+    console.error('AWB tracking error:', e.response?.data || e.message);
+    res.status(500).json({ error: 'Could not fetch tracking info for this AWB' });
+  }
+});
+
+// ============================================================
 //  ROUTE: GET /api/orders
 //  Simple order list — MUST be protected by auth in production.
 //  Add your admin auth middleware before going live.
@@ -988,6 +1037,73 @@ app.post('/api/capture-lead', leadLimiter, async (req, res) => {
     console.error('Lead email failed:', e.message);
     // Still return success — we saved the lead, email is best-effort
     res.json({ success: true });
+  }
+});
+
+// ============================================================
+//  ROUTE: POST /api/reviews  — customer submits a review
+//  ROUTE: GET  /api/reviews  — fetch all approved reviews
+//  ROUTE: POST /api/reviews/:id/approve — admin approves a review
+// ============================================================
+const reviewLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many review submissions. Please try again later.' },
+});
+
+app.post('/api/reviews', reviewLimiter, async (req, res) => {
+  console.log('📝 Review POST received:', JSON.stringify(req.body));
+
+  const name   = sanitizeStr(req.body?.name,  100);
+  const email  = sanitizeStr(req.body?.email, 150).toLowerCase();
+  const rating = Math.round(Number(req.body?.rating));
+  const text   = sanitizeStr(req.body?.text,  1000);
+
+  console.log(`   name="${name}" email="${email}" rating=${rating} text="${text?.slice(0,40)}..."`);
+
+  if (!name)   return res.status(400).json({ error: 'Name is required.' });
+  if (!email)  return res.status(400).json({ error: 'Email is required.' });
+  if (!text)   return res.status(400).json({ error: 'Review text is required.' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return res.status(400).json({ error: 'Invalid email address.' });
+  if (rating < 1 || rating > 5)
+    return res.status(400).json({ error: 'Rating must be between 1 and 5.' });
+
+  try {
+    const [result] = await db.execute(
+      'INSERT INTO reviews (customer_name, email, rating, review_text, approved) VALUES (?, ?, ?, ?, TRUE)',
+      [name, email, rating, text]
+    );
+    console.log(`✅ Review saved — id=${result.insertId}`);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('❌ Review insert error:', e.message);
+    res.status(500).json({ error: 'Could not save review. Please try again.' });
+  }
+});
+
+app.get('/api/reviews', async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      `SELECT id, customer_name, rating, review_text, created_at
+       FROM reviews WHERE approved = TRUE ORDER BY created_at DESC LIMIT 50`
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Could not fetch reviews.' });
+  }
+});
+
+app.post('/api/reviews/:id/approve', adminAuthMiddleware, async (req, res) => {
+  const id = safeInt(req.params.id, 1);
+  if (!id) return res.status(400).json({ error: 'Invalid review ID' });
+  try {
+    await db.execute('UPDATE reviews SET approved = TRUE WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Could not approve review.' });
   }
 });
 

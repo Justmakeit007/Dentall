@@ -89,9 +89,9 @@ body {
 
 @media(pointer:fine){
   body { cursor:none; }
-  .dentall-cursor-dot,.dentall-cursor-ring { pointer-events:none; position:fixed; border-radius:50%; z-index:9999; transform:translate(-50%,-50%); transition:width .2s,height .2s; }
+  .dentall-cursor-dot,.dentall-cursor-ring { pointer-events:none; position:fixed; border-radius:50%; z-index:99999; transform:translate(-50%,-50%); transition:width .2s,height .2s; }
   .dentall-cursor-dot  { width:10px; height:10px; background:var(--primary); }
-  .dentall-cursor-ring { width:32px; height:32px; border:1.5px solid color-mix(in srgb,var(--primary) 50%,transparent); z-index:9998; transition:left .1s ease,top .1s ease; }
+  .dentall-cursor-ring { width:32px; height:32px; border:1.5px solid color-mix(in srgb,var(--primary) 50%,transparent); z-index:99998; transition:left .1s ease,top .1s ease; }
   button,a,input { cursor:none !important; }
 }
 @media(pointer:coarse){ .dentall-cursor-dot,.dentall-cursor-ring { display:none; } }
@@ -401,7 +401,20 @@ body {
 
 .dn-features-grid { padding:3rem max(1.5rem,calc((100vw - 1280px)/2)); background:var(--off-white); border-top:1px solid var(--border-light); min-height:100vh; display:flex; flex-direction:column; justify-content:center; }
 .dn-section-label { font-size:.63rem; letter-spacing:.3em; text-transform:uppercase; color:var(--primary); font-weight:700; margin-bottom:.8rem; }
-.dn-section-title { font-family:'Fraunces',serif; font-size:clamp(1.4rem,2.5vw,2.2rem); font-weight:900; color:var(--text-dark); margin-bottom:1.5rem; max-width:480px; line-height:1.2; }
+.dn-section-title {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 900;
+    color: var(--text-dark);
+
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+
+    max-width: 600px;
+
+    margin: 0 auto 1rem;
+    text-align: center;
+}
 .dn-section-title em { color:var(--primary); font-style:italic; }
 .dn-features-inner { display:grid; grid-template-columns:1fr 1fr 1fr; gap:2px; background:var(--border-mid); border:2px solid var(--border-mid); border-radius:12px; overflow:hidden; }
 .dn-feat-card { background:var(--white); padding:1.4rem 1.5rem; opacity:0; transform:translateY(24px); transition:opacity .6s,transform .6s,box-shadow .3s; position:relative; overflow:hidden; }
@@ -470,7 +483,7 @@ body {
 .dn-reviews-track-wrapper:hover .dn-reviews-scroll-track { animation-play-state:paused; }
 .dn-review-card { background:var(--off-white); border:1px solid var(--primary-muted); padding:2rem; text-align:left; position:relative; flex:0 0 300px; border-radius:12px; transition:transform .3s,box-shadow .3s; }
 .dn-review-card:hover { transform:translateY(-6px); box-shadow:0 16px 48px var(--primary-muted); }
-.dn-review-card::before { content:'201C'; position:absolute; top:1.2rem; right:1.5rem; font-family:'Fraunces',serif; font-size:3rem; color:var(--primary); opacity:.2; line-height:1; }
+.dn-review-card::before { content:'“'; position:absolute; top:1.2rem; right:1.5rem; font-family:'Fraunces',serif; font-size:3rem; color:var(--primary); opacity:.2; line-height:1; }
 .dn-stars { color:var(--warning); font-size:.85rem; margin-bottom:.8rem; }
 .dn-review-text { font-size:.82rem; color:var(--text-mid); line-height:1.75; margin-bottom:1.2rem; }
 .dn-review-author { font-size:.76rem; color:var(--text-dark); font-weight:700; }
@@ -479,7 +492,23 @@ body {
 .dn-stat-label { font-size:.7rem; color:var(--text-light); letter-spacing:.12em; text-transform:uppercase; margin-top:.3rem; }
 @media(max-width:900px){ .dn-social{padding:4rem 0;} .dn-social-header{padding:0 1.5rem 2rem;} .dn-stats-row{gap:2rem;padding:2.5rem 1.5rem 0;} .dn-review-card{flex:0 0 260px;} }
 @media(max-width:480px){ .dn-social{padding:3rem 0;} .dn-social-header{padding:0 1.2rem 1.5rem;} .dn-stats-row{gap:1.5rem;padding:2rem 1.2rem 0;} .dn-review-card{flex:0 0 240px;} }
- 
+
+.dn-write-review { padding:4rem max(1.5rem,calc((100vw - 1280px)/2)); background:var(--white); border-top:1px solid var(--border-light); }
+.dn-write-review-inner { max-width:700px; margin:0 auto; }
+.dn-write-review-card { background:var(--off-white); border:1px solid var(--border-light); border-radius:16px; padding:2.5rem; box-shadow:var(--shadow-soft); }
+.dn-star-picker { display:flex; gap:.3rem; margin:.6rem 0 1.4rem; }
+.dn-star-btn { background:none; border:none; font-size:2.2rem; cursor:pointer; color:var(--border-mid); transition:color .12s,transform .12s; line-height:1; padding:0 .1rem; }
+.dn-star-btn.lit { color:var(--warning); transform:scale(1.1); }
+.dn-review-form-row { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.dn-review-field { display:flex; flex-direction:column; gap:.35rem; margin-bottom:1rem; }
+.dn-review-field label { font-size:.68rem; color:var(--text-light); text-transform:uppercase; letter-spacing:.1em; font-weight:700; }
+.dn-review-field input,.dn-review-field textarea { background:var(--white); border:1.5px solid var(--border-mid); color:var(--text-dark); padding:.75rem 1rem; font-family:'DM Sans',sans-serif; font-size:.88rem; border-radius:8px; outline:none; transition:border-color .2s; resize:vertical; }
+.dn-review-field input:focus,.dn-review-field textarea:focus { border-color:var(--primary); }
+.dn-review-submit-btn { width:100%; padding:1rem; background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; border:none; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:.95rem; font-weight:700; cursor:pointer; transition:opacity .2s,transform .15s; letter-spacing:.04em; }
+.dn-review-submit-btn:disabled { opacity:.55; cursor:not-allowed; }
+.dn-review-submit-btn:not(:disabled):hover { transform:translateY(-2px); box-shadow:0 8px 24px var(--primary-muted); }
+.dn-review-success { text-align:center; padding:2.5rem 1rem; }
+@media(max-width:600px){ .dn-review-form-row{grid-template-columns:1fr;} .dn-write-review-card{padding:1.5rem;} .dn-write-review{padding:3rem 1.2rem;} }
 
 .dn-order { padding:3rem max(1.5rem,calc((100vw - 1280px)/2)) 4rem; background:var(--off-white); border-top:1px solid var(--border-light); }
 .dn-order-title { font-family:'Fraunces',serif; font-size:clamp(1.4rem,2.2vw,2.2rem); font-weight:900; color:var(--text-dark); line-height:1.1; margin-bottom:.5rem; }
@@ -1151,87 +1180,493 @@ function TrackingSection() {
 //   }
 // };
 
-  return (
-    <section className="dn-tracking-section" id="tracking">
-      <div style={{textAlign:'center',fontSize:'.58rem',letterSpacing:'.28em',textTransform:'uppercase',color:'var(--primary)',fontWeight:700,marginBottom:'.3rem'}}>Track your order</div>
-      <div style={{textAlign:'center',fontFamily:'Fraunces,serif',fontSize:'1.1rem',fontWeight:900,color:'var(--text-dark)',marginBottom:'.7rem'}}>Where's my package?</div>
+//   return (
+//     <section className="dn-tracking-section" id="tracking">
+//       <div style={{textAlign:'center',fontSize:'.58rem',letterSpacing:'.28em',textTransform:'uppercase',color:'var(--primary)',fontWeight:700,marginBottom:'.3rem'}}>Track your order</div>
+//       <div style={{textAlign:'center',fontFamily:'Fraunces,serif',fontSize:'1.1rem',fontWeight:900,color:'var(--text-dark)',marginBottom:'.7rem'}}>Where's my package?</div>
 
-      <div className="dn-tracking-card">
-        <div className="dn-tracking-lookup">
-          <input
-            value={orderId}
-            onChange={e => setOrderId(e.target.value)}
-            placeholder="Enter your order ID (e.g. 42)"
-            onKeyDown={e => e.key === 'Enter' && fetchTracking(orderId)}
-          />
-          <button onClick={() => fetchTracking(orderId)} disabled={loading || !orderId}>
-            {loading ? 'Loading…' : 'Track →'}
-          </button>
+//       <div className="dn-tracking-card">
+//         <div className="dn-tracking-lookup">
+//           <input
+//             value={orderId}
+//             onChange={e => setOrderId(e.target.value)}
+//             placeholder="Enter your order ID (e.g. 42)"
+//             onKeyDown={e => e.key === 'Enter' && fetchTracking(orderId)}
+//           />
+//           <button onClick={() => fetchTracking(orderId)} disabled={loading || !orderId}>
+//             {loading ? 'Loading…' : 'Track →'}
+//           </button>
+//         </div>
+
+//         {error && (
+//           <div style={{color:'var(--primary-dark)',fontSize:'.82rem',marginBottom:'1rem',padding:'.8rem',background:'rgba(255,61,87,.06)',borderRadius:'8px',border:'1px solid rgba(255,61,87,.2)'}}>
+//             ⚠ {error}
+//           </div>
+//         )}
+
+//         {trackData && (
+//           <>
+//             <div className="dn-tracking-header">
+//               <div>
+//                 <div className="dn-tracking-order-id">Order #{trackData.order_id || orderId}</div>
+//                 <div className="dn-tracking-awb">AWB: {trackData.awb_code || '—'}</div>
+//               </div>
+//               <div className="dn-tracking-status-badge">{currentStatus || 'Processing'}</div>
+//             </div>
+
+//             {/* Progress bar */}
+//             <div className="dn-tracking-progress">
+//               {['Ordered','Picked up','In transit','Out for delivery','Delivered'].map((step, i, arr) => (
+//                 <React.Fragment key={step}>
+//                   <div className={`dn-track-step ${getStepStatus(step, currentStatus)}`}>
+//                     <div className="dn-track-step-dot">{getStepStatus(step, currentStatus) === 'done' ? '✓' : i + 1}</div>
+//                     <div className="dn-track-step-label">{step}</div>
+//                   </div>
+//                   {i < arr.length - 1 && (
+//                     <div className={`dn-track-line ${getStepStatus(arr[i+1], currentStatus) !== '' ? 'done' : ''}`} />
+//                   )}
+//                 </React.Fragment>
+//               ))}
+//             </div>
+
+//             {/* Estimated delivery */}
+//             {trackData.etd && (
+//               <div style={{background:'rgba(255,92,0,0.06)',border:'1px solid rgba(255,92,0,.15)',borderRadius:'8px',padding:'.8rem 1rem',marginBottom:'1.5rem',fontSize:'.82rem',color:'var(--text-mid)'}}>
+//                 📦 Estimated delivery: <strong style={{color:'var(--primary)'}}>{trackData.etd}</strong>
+//               </div>
+//             )}
+
+//             {/* Event log */}
+//             {trackData.tracking_data?.length > 0 && (
+//               <div className="dn-tracking-events">
+//                 <div style={{fontSize:'.65rem',letterSpacing:'.2em',textTransform:'uppercase',color:'var(--text-light)',fontWeight:700,marginBottom:'.8rem'}}>Activity</div>
+//                 {trackData.tracking_data.map((ev, i) => (
+//                   <div key={i} className="dn-tracking-event">
+//                     <div className={`dn-event-dot ${i > 0 ? 'old' : ''}`} />
+//                     <div>
+//                       <div className="dn-event-text">{ev.activity || ev.status}</div>
+//                       <div className="dn-event-time">{ev.date} — {ev.location}</div>
+//                     </div>
+//                   </div>
+//                 ))}
+//               </div>
+//             )}
+//           </>
+//         )}
+
+//         {!trackData && !loading && !error && (
+//           <div style={{textAlign:'center',padding:'2rem',color:'var(--text-light)',fontSize:'.85rem'}}>
+//             Enter your order ID above to see live tracking updates
+//           </div>
+//         )}
+//       </div>
+//     </section>
+//   );
+ }
+
+/* ─── REVIEW FORM SECTION ────────────────────────────────────── */
+function ReviewFormSection({ onSubmitSuccess }) {
+  const [form, setForm]         = useState({ name: '', email: '', rating: 0, text: '' });
+  const [hovered, setHovered]   = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess]   = useState(false);
+  const [error, setError]       = useState('');
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (form.rating === 0) return setError('Please select a star rating.');
+    if (!form.text.trim()) return setError('Please write a short review.');
+    setSubmitting(true); setError('');
+    try {
+      const res  = await fetch('/api/reviews', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ name: form.name, email: form.email, rating: form.rating, text: form.text }),
+      });
+      const ct   = res.headers.get('content-type') || '';
+      const data = ct.includes('application/json') ? await res.json() : {};
+      if (!res.ok) throw new Error(data.error || `Server error (${res.status}) — is the server running?`);
+      setSuccess(true);
+      onSubmitSuccess?.();
+    } catch (err) { setError(err.message); }
+    finally { setSubmitting(false); }
+  };
+
+  const displayRating = hovered || form.rating;
+
+  return (
+    <section className="dn-write-review" id="write-review">
+      <div className="dn-write-review-inner">
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div className="dn-section-label">Share your experience</div>
+          <div className="dn-section-title" style={{ fontSize: 'clamp(1.3rem,2vw,2rem)' }}>
+            Leave a <em>review</em>
+          </div>
+          <p style={{ color: 'var(--text-light)', fontSize: '.88rem', marginTop: '.5rem' }}>
+            Your feedback helps thousands of families make the right choice.
+          </p>
         </div>
 
+        <div className="dn-write-review-card">
+          {success ? (
+            <div className="dn-review-success">
+              <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🎉</div>
+              <div className="dn-section-title" style={{ fontSize: '1.5rem' }}>Thank you!</div>
+              <p style={{ color: 'var(--text-light)', fontSize: '.9rem', marginTop: '.6rem', lineHeight: 1.7 }}>
+                Your review has been submitted and is awaiting moderation.<br />
+                We really appreciate you taking the time!
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: '.5rem' }}>
+                <div style={{ fontSize: '.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700 }}>
+                  Your rating
+                </div>
+                <div className="dn-star-picker">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      className={`dn-star-btn${displayRating >= n ? ' lit' : ''}`}
+                      onMouseEnter={() => setHovered(n)}
+                      onMouseLeave={() => setHovered(0)}
+                      onClick={() => set('rating', n)}
+                    >★</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="dn-review-form-row">
+                <div className="dn-review-field">
+                  <label>Your name</label>
+                  <input
+                    required
+                    value={form.name}
+                    onChange={e => set('name', e.target.value)}
+                    placeholder="Priya S."
+                    maxLength={100}
+                  />
+                </div>
+                <div className="dn-review-field">
+                  <label>Email address</label>
+                  <input
+                    required
+                    type="email"
+                    value={form.email}
+                    onChange={e => set('email', e.target.value)}
+                    placeholder="priya@example.com"
+                    maxLength={150}
+                  />
+                </div>
+              </div>
+
+              <div className="dn-review-field">
+                <label>Your review</label>
+                <textarea
+                  required
+                  rows={4}
+                  value={form.text}
+                  onChange={e => set('text', e.target.value)}
+                  placeholder="What did you love about DENTALL? How has it helped your oral health?"
+                  maxLength={1000}
+                />
+                <div style={{ textAlign: 'right', fontSize: '.68rem', color: 'var(--text-light)' }}>
+                  {form.text.length}/1000
+                </div>
+              </div>
+
+              {error && (
+                <div style={{ color: '#e53935', fontSize: '.82rem', marginBottom: '.8rem', padding: '.6rem .9rem', background: 'rgba(229,57,53,.06)', borderRadius: 6 }}>
+                  ⚠ {error}
+                </div>
+              )}
+
+              <button className="dn-review-submit-btn" type="submit" disabled={submitting}>
+                {submitting ? 'Submitting…' : 'Submit Review →'}
+              </button>
+              <p style={{ textAlign: 'center', color: 'var(--text-light)', fontSize: '.72rem', marginTop: '.8rem' }}>
+                Reviews are moderated before appearing on the site · Your email is never published
+              </p>
+            </form>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── SHIPMENT DETAILS PAGE ───────────────────────────────────── */
+function ShipmentPage({ onClose }) {
+  const [awbInput, setAwbInput]     = useState('');
+  const [orderInput, setOrderInput] = useState('');
+  const [data, setData]             = useState(null);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
+
+  useEffect(() => {
+    const hash      = window.location.hash;
+    const queryPart = hash.includes('?') ? hash.split('?')[1] : '';
+    const params    = new URLSearchParams(queryPart);
+    const awb       = params.get('awb');
+    const order     = params.get('order');
+    if (awb)   { setAwbInput(awb);     fetchByAWB(awb); }
+    if (order) { setOrderInput(order); fetchByOrder(order); }
+  }, []);
+
+  const fetchByOrder = async (id) => {
+    if (!id) return;
+    setLoading(true); setError(''); setData(null);
+    try {
+      const res = await fetch(`/api/track/${id}`);
+      if (!res.ok) throw new Error('Order not found');
+      setData(await res.json());
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  const fetchByAWB = async (awb) => {
+    if (!awb) return;
+    setLoading(true); setError(''); setData(null);
+    try {
+      const res = await fetch(`/api/shipment/awb/${encodeURIComponent(awb)}`);
+      if (!res.ok) throw new Error('Shipment not found');
+      setData(await res.json());
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  const STATUS_STEPS = ['Ordered', 'Picked up', 'In transit', 'Out for delivery', 'Delivered'];
+  const STATUS_MAP   = {
+    'PICKUP SCHEDULED': 1, 'PICKUP GENERATED': 1,
+    'IN TRANSIT': 2,       'SHIPPED': 2,
+    'OUT FOR DELIVERY': 3,
+    'DELIVERED': 4,
+  };
+  const currentStep = STATUS_MAP[(data?.shipment_status || '').toUpperCase()] ?? 0;
+  const isDelivered = currentStep === 4;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9000,
+      background: 'var(--bg-main)',
+      overflowY: 'auto',
+      fontFamily: "'DM Sans', sans-serif",
+    }}>
+      {/* Header */}
+      <div style={{
+        background: 'linear-gradient(135deg, var(--primary), var(--primary-dark), var(--secondary))',
+        padding: '1.5rem 2rem',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        position: 'sticky', top: 0, zIndex: 10,
+        borderBottom: '2px solid rgba(255,255,255,0.15)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {onClose && (
+            <button onClick={onClose} style={{
+              background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff',
+              width: 36, height: 36, borderRadius: '50%', fontSize: '1rem', cursor: 'pointer',
+            }}>←</button>
+          )}
+          <div>
+            <div style={{ fontSize: '.65rem', letterSpacing: '.25em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)', marginBottom: 2 }}>Dentall</div>
+            <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', fontWeight: 900, color: '#fff' }}>Shipment Details</div>
+          </div>
+        </div>
+        <div style={{ fontSize: '1.5rem' }}>📦</div>
+      </div>
+
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '2rem 1.5rem' }}>
+
+        {/* Search bar */}
+        <div style={{
+          background: 'var(--white)', border: '1px solid var(--border-light)',
+          borderRadius: 12, padding: '1.5rem', marginBottom: '1.5rem',
+          boxShadow: 'var(--shadow-soft)',
+        }}>
+          <div style={{ fontSize: '.65rem', letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--text-light)', fontWeight: 700, marginBottom: '1rem' }}>
+            Track your shipment
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700, marginBottom: '.4rem' }}>
+                Order ID
+              </label>
+              <div style={{ display: 'flex', gap: '.5rem' }}>
+                <input
+                  value={orderInput}
+                  onChange={e => setOrderInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="e.g. 42"
+                  onKeyDown={e => e.key === 'Enter' && fetchByOrder(orderInput)}
+                  style={{ flex: 1, background: 'var(--off-white)', border: '1.5px solid var(--border-mid)', color: 'var(--text-dark)', padding: '.65rem .9rem', fontFamily: "'DM Sans',sans-serif", fontSize: '.86rem', borderRadius: 8, outline: 'none' }}
+                />
+                <button
+                  onClick={() => fetchByOrder(orderInput)}
+                  disabled={loading || !orderInput}
+                  style={{ background: 'linear-gradient(135deg,var(--primary),var(--primary-dark))', color: '#fff', border: 'none', padding: '.65rem 1rem', borderRadius: 8, fontFamily: "'DM Sans',sans-serif", fontSize: '.78rem', fontWeight: 700, cursor: 'pointer', opacity: (!orderInput || loading) ? 0.5 : 1 }}>
+                  Track
+                </button>
+              </div>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700, marginBottom: '.4rem' }}>
+                AWB / Tracking No.
+              </label>
+              <div style={{ display: 'flex', gap: '.5rem' }}>
+                <input
+                  value={awbInput}
+                  onChange={e => setAwbInput(e.target.value)}
+                  placeholder="e.g. SR1234567"
+                  onKeyDown={e => e.key === 'Enter' && fetchByAWB(awbInput)}
+                  style={{ flex: 1, background: 'var(--off-white)', border: '1.5px solid var(--border-mid)', color: 'var(--text-dark)', padding: '.65rem .9rem', fontFamily: "'DM Sans',sans-serif", fontSize: '.86rem', borderRadius: 8, outline: 'none' }}
+                />
+                <button
+                  onClick={() => fetchByAWB(awbInput)}
+                  disabled={loading || !awbInput}
+                  style={{ background: 'linear-gradient(135deg,var(--primary),var(--primary-dark))', color: '#fff', border: 'none', padding: '.65rem 1rem', borderRadius: 8, fontFamily: "'DM Sans',sans-serif", fontSize: '.78rem', fontWeight: 700, cursor: 'pointer', opacity: (!awbInput || loading) ? 0.5 : 1 }}>
+                  Track
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading */}
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-light)' }}>
+            <div style={{ width: 40, height: 40, border: '3px solid var(--border-mid)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin .7s linear infinite', margin: '0 auto 1rem' }} />
+            Fetching shipment data from Shiprocket…
+          </div>
+        )}
+
+        {/* Error */}
         {error && (
-          <div style={{color:'var(--primary-dark)',fontSize:'.82rem',marginBottom:'1rem',padding:'.8rem',background:'rgba(255,61,87,.06)',borderRadius:'8px',border:'1px solid rgba(255,61,87,.2)'}}>
+          <div style={{ background: 'rgba(255,61,87,.06)', border: '1px solid rgba(255,61,87,.2)', borderRadius: 8, padding: '1rem 1.2rem', color: 'var(--text-dark)', fontSize: '.85rem', marginBottom: '1rem' }}>
             ⚠ {error}
           </div>
         )}
 
-        {trackData && (
+        {/* Results */}
+        {data && !loading && (
           <>
-            <div className="dn-tracking-header">
-              <div>
-                <div className="dn-tracking-order-id">Order #{trackData.order_id || orderId}</div>
-                <div className="dn-tracking-awb">AWB: {trackData.awb_code || '—'}</div>
+            <div style={{
+              background: isDelivered
+                ? 'linear-gradient(135deg, rgba(0,212,180,.08), rgba(0,212,180,.03))'
+                : 'linear-gradient(135deg, var(--primary-muted), rgba(67,85,99,.04))',
+              border: `1px solid ${isDelivered ? 'rgba(0,212,180,.3)' : 'var(--border-mid)'}`,
+              borderRadius: 12, padding: '1.5rem', marginBottom: '1rem',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div>
+                  <div style={{ fontSize: '.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 4 }}>
+                    Order #{data.order_id || orderInput}
+                  </div>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-dark)', marginBottom: 4 }}>
+                    AWB: {data.awb_code || '—'}
+                  </div>
+                  {data.courier_name && (
+                    <div style={{ fontSize: '.8rem', color: 'var(--text-mid)' }}>via {data.courier_name}</div>
+                  )}
+                </div>
+                <div style={{
+                  background: isDelivered ? 'rgba(0,212,180,.12)' : 'var(--primary-muted)',
+                  border: `1px solid ${isDelivered ? 'rgba(0,212,180,.3)' : 'var(--primary-muted)'}`,
+                  color: isDelivered ? 'var(--success)' : 'var(--primary-dark)',
+                  fontSize: '.72rem', fontWeight: 700, letterSpacing: '.1em',
+                  textTransform: 'uppercase', padding: '.45rem 1rem', borderRadius: 20,
+                }}>
+                  {isDelivered ? '✓ Delivered' : (data.shipment_status || 'Processing')}
+                </div>
               </div>
-              <div className="dn-tracking-status-badge">{currentStatus || 'Processing'}</div>
+
+              {/* Progress steps */}
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                {STATUS_STEPS.map((step, i, arr) => {
+                  const done   = i < currentStep;
+                  const active = i === currentStep;
+                  return (
+                    <React.Fragment key={step}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                        <div style={{
+                          width: 28, height: 28, borderRadius: '50%',
+                          background: done ? 'var(--success)' : active ? 'var(--primary)' : 'var(--white)',
+                          border: `2px solid ${done ? 'var(--success)' : active ? 'var(--primary)' : 'var(--border-mid)'}`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '.7rem', color: (done || active) ? '#fff' : 'var(--text-light)',
+                          marginBottom: '.4rem', fontWeight: 700,
+                          boxShadow: active ? '0 0 0 4px var(--primary-muted)' : 'none',
+                        }}>
+                          {done ? '✓' : i + 1}
+                        </div>
+                        <div style={{ fontSize: '.55rem', color: (done || active) ? 'var(--text-dark)' : 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.06em', textAlign: 'center', fontWeight: (done || active) ? 600 : 400, lineHeight: 1.3 }}>
+                          {step}
+                        </div>
+                      </div>
+                      {i < arr.length - 1 && (
+                        <div style={{ flex: 1, height: 2, background: done ? 'var(--success)' : 'var(--border-mid)', marginTop: '-1.2rem', transition: 'background .3s' }} />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Progress bar */}
-            <div className="dn-tracking-progress">
-              {['Ordered','Picked up','In transit','Out for delivery','Delivered'].map((step, i, arr) => (
-                <React.Fragment key={step}>
-                  <div className={`dn-track-step ${getStepStatus(step, currentStatus)}`}>
-                    <div className="dn-track-step-dot">{getStepStatus(step, currentStatus) === 'done' ? '✓' : i + 1}</div>
-                    <div className="dn-track-step-label">{step}</div>
-                  </div>
-                  {i < arr.length - 1 && (
-                    <div className={`dn-track-line ${getStepStatus(arr[i+1], currentStatus) !== '' ? 'done' : ''}`} />
-                  )}
-                </React.Fragment>
+            {/* Meta grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: '1rem', marginBottom: '1rem' }}>
+              {[
+                { label: 'Courier', value: data.courier_name || '—' },
+                { label: 'Estimated delivery', value: data.etd || '—' },
+                { label: 'Order date', value: data.order_date ? new Date(data.order_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' },
+                { label: 'Customer', value: data.customer_name || '—' },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ background: 'var(--white)', border: '1px solid var(--border-light)', borderRadius: 10, padding: '1rem' }}>
+                  <div style={{ fontSize: '.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: '.9rem', fontWeight: 600, color: 'var(--text-dark)' }}>{value}</div>
+                </div>
               ))}
             </div>
 
-            {/* Estimated delivery */}
-            {trackData.etd && (
-              <div style={{background:'rgba(255,92,0,0.06)',border:'1px solid rgba(255,92,0,.15)',borderRadius:'8px',padding:'.8rem 1rem',marginBottom:'1.5rem',fontSize:'.82rem',color:'var(--text-mid)'}}>
-                📦 Estimated delivery: <strong style={{color:'var(--primary)'}}>{trackData.etd}</strong>
-              </div>
-            )}
-
-            {/* Event log */}
-            {trackData.tracking_data?.length > 0 && (
-              <div className="dn-tracking-events">
-                <div style={{fontSize:'.65rem',letterSpacing:'.2em',textTransform:'uppercase',color:'var(--text-light)',fontWeight:700,marginBottom:'.8rem'}}>Activity</div>
-                {trackData.tracking_data.map((ev, i) => (
-                  <div key={i} className="dn-tracking-event">
-                    <div className={`dn-event-dot ${i > 0 ? 'old' : ''}`} />
-                    <div>
-                      <div className="dn-event-text">{ev.activity || ev.status}</div>
-                      <div className="dn-event-time">{ev.date} — {ev.location}</div>
+            {/* Activity timeline */}
+            {data.tracking_data?.length > 0 && (
+              <div style={{ background: 'var(--white)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '1.5rem' }}>
+                <div style={{ fontSize: '.65rem', letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--text-light)', fontWeight: 700, marginBottom: '1.2rem' }}>
+                  Activity log
+                </div>
+                <div>
+                  {data.tracking_data.map((ev, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '1rem', paddingBottom: i < data.tracking_data.length - 1 ? '1rem' : 0 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 16, flexShrink: 0 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: i === 0 ? 'var(--primary)' : 'var(--border-mid)', marginTop: 4, flexShrink: 0 }} />
+                        {i < data.tracking_data.length - 1 && (
+                          <div style={{ width: 1, flex: 1, background: 'var(--border-light)', marginTop: 4 }} />
+                        )}
+                      </div>
+                      <div style={{ paddingBottom: i < data.tracking_data.length - 1 ? '0.5rem' : 0 }}>
+                        <div style={{ fontSize: '.85rem', fontWeight: i === 0 ? 600 : 400, color: i === 0 ? 'var(--text-dark)' : 'var(--text-mid)', marginBottom: 2 }}>
+                          {ev.activity || ev.status}
+                        </div>
+                        <div style={{ fontSize: '.72rem', color: 'var(--text-light)' }}>
+                          {ev.date}{ev.location ? ` — ${ev.location}` : ''}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </>
         )}
 
-        {!trackData && !loading && !error && (
-          <div style={{textAlign:'center',padding:'2rem',color:'var(--text-light)',fontSize:'.85rem'}}>
-            Enter your order ID above to see live tracking updates
+        {!data && !loading && !error && (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-light)' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: .4 }}>📦</div>
+            <div style={{ fontSize: '.88rem' }}>Enter your Order ID or AWB number above to see live shipment details from Shiprocket</div>
           </div>
         )}
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -1275,6 +1710,17 @@ export default function DentallApp() {
   const [payProcessing, setPayProcessing] = useState(false);
   const [paySuccess, setPaySuccess]       = useState(false);
   const [successOrder, setSuccessOrder]   = useState({ orderId:'', awb:'' });
+  const [showShipment, setShowShipment]   = useState(false);
+  const [dbReviews, setDbReviews]         = useState([]);
+
+  const fetchReviews = () => {
+    fetch('/api/reviews')
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { if (Array.isArray(data) && data.length > 0) setDbReviews(data); })
+      .catch(() => {});
+  };
+
+  useEffect(() => { fetchReviews(); }, []);
 
   /* ── Modal pincode (in payment modal) ── */
   const [modalShipping, setModalShipping]       = useState(null);
@@ -1692,6 +2138,7 @@ export default function DentallApp() {
           <a href="#features-grid" onClick={e=>{e.preventDefault();scrollTo('features-grid')}}>Features</a>
           <a href="#social"        onClick={e=>{e.preventDefault();scrollTo('social')}}>Reviews</a>
           <a href="#tracking"      onClick={e=>{e.preventDefault();scrollTo('tracking')}}>Track</a>
+          <a href="#shipment"      onClick={e=>{e.preventDefault();setShowShipment(true);}}>Shipment</a>
           <button className="dn-cart-btn" onClick={()=>setCartOpen(o=>!o)}>
             🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
           </button>
@@ -1706,6 +2153,7 @@ export default function DentallApp() {
         <a href="#features-grid" onClick={e=>{e.preventDefault();scrollTo('features-grid')}}>Features</a>
         <a href="#social"        onClick={e=>{e.preventDefault();scrollTo('social')}}>Reviews</a>
         <a href="#tracking"      onClick={e=>{e.preventDefault();scrollTo('tracking')}}>Track Order</a>
+        <a href="#shipment"      onClick={e=>{e.preventDefault();setShowShipment(true);}}>Shipment</a>
         <a href="#order"         onClick={e=>{e.preventDefault();scrollTo('order')}}>Order</a>
         <button className="dn-cart-btn" style={{fontSize:'1rem',padding:'.8rem 2rem'}} onClick={()=>{setDrawerOpen(false);setCartOpen(true);}}>
           🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
@@ -1992,24 +2440,35 @@ export default function DentallApp() {
         </div>
         <div className="dn-reviews-track-wrapper">
           <div className="dn-reviews-scroll-track">
-            {[...REVIEWS,...REVIEWS,...REVIEWS].map((r,i)=>(
-              <div key={i} className="dn-review-card">
-                <div className="dn-stars">★★★★★</div>
-                <div className="dn-review-text">"{r.text}"</div>
-                <div className="dn-review-author">{r.author} <span style={{color:'var(--text-light)',fontWeight:400}}>— {r.city}</span></div>
-              </div>
-            ))}
+            {(() => {
+              const list = dbReviews.length
+                ? dbReviews.map(r => ({ text: r.review_text, author: r.customer_name, city: '', rating: r.rating }))
+                : REVIEWS.map(r => ({ ...r, rating: 5 }));
+              return [...list, ...list, ...list].map((r, i) => (
+                <div key={i} className="dn-review-card">
+                  <div className="dn-stars">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</div>
+                  <div className="dn-review-text">"{r.text}"</div>
+                  <div className="dn-review-author">
+                    {r.author}
+                    {r.city && <span style={{color:'var(--text-light)',fontWeight:400}}> — {r.city}</span>}
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
         </div>
-        <div className="dn-stats-row">
+        {/* <div className="dn-stats-row">
           {[['99.3%','Plaque removed'],['12K+','Happy customers'],['4.9','Average rating'],['200+','Dentist partners']].map(([n,l])=>(
             <div key={l} className="dn-stat">
               <div className="dn-stat-num">{n}</div>
               <div className="dn-stat-label">{l}</div>
             </div>
           ))}
-        </div>
+        </div> */}
       </section>
+
+      {/* ── Write a Review ── */}
+      <ReviewFormSection onSubmitSuccess={fetchReviews} />
 
       {/* ── Order ── */}
       <section className="dn-order" id="order">
@@ -2097,7 +2556,7 @@ export default function DentallApp() {
                     </div>
                   </div>
                 )}
-                <button className="dn-pay-done-btn" onClick={()=>{closePayment();scrollTo('tracking');}}>Track My Order →</button>
+                <button className="dn-pay-done-btn" onClick={()=>{closePayment();setShowShipment(true);}}>View Shipment Details →</button>
               </div>
             ) : (
               <div className="dn-pay-body">
@@ -2250,6 +2709,9 @@ export default function DentallApp() {
           </div>
         </div>
       )}
+
+      {/* ── Shipment Page ── */}
+      {showShipment && <ShipmentPage onClose={() => setShowShipment(false)} />}
 
       {/* ── Video Modal ── */}
       {showVideo && (

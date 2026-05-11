@@ -475,7 +475,6 @@ body {
 .dn-reviews-track-wrapper:hover .dn-reviews-scroll-track { animation-play-state:paused; }
 .dn-review-card { background:var(--off-white); border:1px solid var(--primary-muted); padding:2rem; text-align:left; position:relative; flex:0 0 300px; border-radius:12px; transition:transform .3s,box-shadow .3s; }
 .dn-review-card:hover { transform:translateY(-6px); box-shadow:0 16px 48px var(--primary-muted); }
-.dn-review-card::before { content:'201C'; position:absolute; top:1.2rem; right:1.5rem; font-family:'Fraunces',serif; font-size:3rem; color:var(--primary); opacity:.2; line-height:1; }
 .dn-stars { color:var(--warning); font-size:.85rem; margin-bottom:.8rem; }
 .dn-review-text { font-size:.82rem; color:var(--text-mid); line-height:1.75; margin-bottom:1.2rem; }
 .dn-review-author { font-size:.76rem; color:var(--text-dark); font-weight:700; }
@@ -583,7 +582,145 @@ body {
 .dn-video-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.75); backdrop-filter:blur(12px); animation:fadeIn .4s ease; }
 .dn-video-container { position:relative; width:80%; max-width:900px; aspect-ratio:16/9; background:#000; border-radius:8px; overflow:hidden; z-index:2; transform:scale(0.9); animation:zoomIn .4s ease forwards; }
 .dn-video-close { position:absolute; top:10px; right:14px; background:rgba(0,0,0,.6); border:none; color:#fff; font-size:1.2rem; padding:6px 10px; cursor:pointer; z-index:10; border-radius:4px; }
- 
+
+/* ── Wholesale Modal ── */
+.dn-wholesale-modal { position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:1rem; }
+.dn-wholesale-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(10px); animation:fadeIn .3s ease; }
+.dn-wholesale-box { position:relative; z-index:2; background:#fff; border-radius:10px; width:100%; max-width:560px; max-height:90vh; overflow-y:auto; animation:zoomIn .35s ease forwards; transform:scale(0.9); }
+.dn-wholesale-header { background:var(--primary); padding:1.5rem 1.8rem; border-radius:10px 10px 0 0; position:relative; }
+.dn-wholesale-header h2 { font-family:'Fraunces',serif; font-size:1.4rem; color:#fff; font-weight:900; margin:0 0 .2rem; }
+.dn-wholesale-header p { font-size:.75rem; color:rgba(255,255,255,.75); margin:0; letter-spacing:.05em; }
+.dn-wholesale-modal * { cursor:auto; }
+.dn-wholesale-modal button { cursor:pointer !important; }
+.dn-wholesale-modal input, .dn-wholesale-modal textarea { cursor:text !important; }
+.dn-wholesale-modal select { cursor:pointer !important; }
+.dn-wholesale-close { position:absolute; top:1rem; right:1.2rem; background:rgba(255,255,255,.2); border:none; color:#fff; font-size:1.1rem; width:30px; height:30px; border-radius:50%; cursor:pointer !important; display:flex; align-items:center; justify-content:center; }
+.dn-wholesale-body { padding:1.8rem; }
+.dn-wholesale-grid { display:grid; grid-template-columns:1fr 1fr; gap:.9rem; }
+.dn-wholesale-field { display:flex; flex-direction:column; gap:.35rem; }
+.dn-wholesale-field.full { grid-column:1/-1; }
+.dn-wholesale-field label { font-size:.68rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--text-mid); }
+.dn-wholesale-field input, .dn-wholesale-field select, .dn-wholesale-field textarea { border:1.5px solid #e2e2e2; border-radius:5px; padding:.6rem .8rem; font-family:'DM Sans',sans-serif; font-size:.85rem; color:var(--text-dark); background:#fafafa; transition:border-color .2s; outline:none; width:100%; box-sizing:border-box; }
+.dn-wholesale-field input:focus, .dn-wholesale-field select:focus, .dn-wholesale-field textarea:focus { border-color:var(--primary); background:#fff; }
+.dn-wholesale-field textarea { resize:vertical; min-height:80px; }
+.dn-wholesale-submit { margin-top:1.2rem; width:100%; background:var(--primary); color:#fff; border:none; padding:.85rem; font-family:'DM Sans',sans-serif; font-size:.85rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; border-radius:5px; cursor:pointer; transition:background .2s; }
+.dn-wholesale-submit:hover { background:var(--primary-dark); }
+.dn-wholesale-success { text-align:center; padding:2.5rem 2rem; }
+.dn-wholesale-success-icon { font-size:3rem; margin-bottom:1rem; }
+.dn-wholesale-success h3 { font-family:'Fraunces',serif; font-size:1.4rem; color:var(--primary); font-weight:900; margin:0 0 .5rem; }
+.dn-wholesale-success p { font-size:.84rem; color:var(--text-mid); line-height:1.6; margin:0; }
+.dn-wholesale-btn { background:linear-gradient(135deg,#8B0B1E,var(--primary)); }
+@media(max-width:480px){ .dn-wholesale-grid { grid-template-columns:1fr; } }
+@media(max-width:540px){
+  .dn-wholesale-box { border-radius:8px 8px 0 0; align-self:flex-end; max-height:92vh; }
+  .dn-wholesale-modal { align-items:flex-end; padding:0; }
+  .dn-wholesale-header { padding:1.2rem 1.2rem; border-radius:8px 8px 0 0; }
+  .dn-wholesale-body { padding:1.2rem; }
+  .dn-wholesale-header h2 { font-size:1.15rem; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   GLOBAL RESPONSIVE SAFETY
+   ══════════════════════════════════════════════════════════════ */
+img, video, iframe { max-width:100%; }
+
+/* ── Nav: tighten at medium breakpoint, full hide at mobile ── */
+@media(max-width:900px) and (min-width:769px){
+  .dn-nav-links { gap:1rem; }
+  .dn-nav-cta { padding:.5rem 1rem; font-size:.7rem; }
+}
+@media(max-width:768px){
+  .dn-logo-tagline { display:none; }
+  .dn-hero { overflow-x:hidden; }
+}
+
+/* ── Hero image wrap: clip the colour-label pill that extends right ── */
+.dn-hero-image-wrap { position:relative; }
+@media(max-width:960px){
+  .dn-hero-image-wrap { width:100%; display:flex; justify-content:center; overflow:hidden; }
+}
+/* iPhone SE portrait (375px) and similar narrow phones */
+@media(max-width:430px){
+  .dn-hero { padding:5rem 1rem 2.5rem; min-height:unset; }
+  .dn-h1 { font-size:clamp(2rem,9.5vw,2.6rem); }
+  .dn-hero-sub { font-size:.84rem; }
+  .dn-hero-ctas { gap:.7rem; }
+  .dn-btn-primary,.dn-btn-ghost { padding:.85rem 1.4rem; font-size:.8rem; }
+}
+/* iPhone SE and smaller */
+@media(max-width:390px){
+  .dn-h1 { font-size:clamp(1.85rem,9vw,2.3rem); }
+  .dn-hero-sub { font-size:.8rem; }
+}
+@media(max-width:360px){
+  .dn-h1 { font-size:clamp(1.7rem,8.5vw,2rem); }
+}
+/* iPhone SE landscape & other small-height landscape devices */
+@media(max-height:500px) and (orientation:landscape){
+  .dn-hero {
+    grid-template-columns:1fr 1fr !important;
+    min-height:unset;
+    padding:4.5rem 1.5rem 1.5rem;
+    gap:1.5rem;
+    text-align:left;
+  }
+  .dn-hero-content { padding-right:1rem; }
+  .dn-hero-tag { justify-content:flex-start; }
+  .dn-hero-sub { margin-left:0; margin-right:0; font-size:.8rem; }
+  .dn-hero-ctas { justify-content:flex-start; flex-direction:row; }
+  .dn-btn-primary,.dn-btn-ghost { width:auto; padding:.7rem 1.2rem; font-size:.78rem; }
+  .dn-h1 { font-size:clamp(1.4rem,3.5vw,2rem); margin-bottom:.8rem; }
+  .dn-hero-image-wrap { max-height:calc(100vh - 4rem); align-items:center; }
+  .dn-hero-image-wrap > div:first-child { transform:scale(0.58); transform-origin:center center; margin:-80px -60px; }
+}
+
+/* ── Logo: shrink tagline on tiny screens ── */
+@media(max-width:400px){
+  .dn-logo { font-size:1.15rem; }
+}
+
+/* ── Video thumbnail border ── */
+@media(max-width:480px){
+  .dn-video-placeholder { border-width:2px; }
+}
+
+/* ── Product cards: full-width button on mobile ── */
+@media(max-width:480px){
+  .dn-big-card-btn { width:100%; }
+}
+
+/* ── Pack math: stack rows on tiny screens ── */
+@media(max-width:380px){
+  .dn-pack-math-row { flex-direction:column; gap:.2rem; text-align:center; }
+  .dn-pack-math-total { flex-direction:column; gap:.3rem; align-items:center; }
+  .dn-pack-math { padding:1.4rem 1.2rem; }
+}
+
+/* ── Order form: single col on mobile ── */
+@media(max-width:480px){
+  .dn-field-row { grid-template-columns:1fr !important; }
+}
+
+/* ── Footer: prevent text overflow ── */
+@media(max-width:380px){
+  .dn-footer-copy { font-size:.62rem; }
+}
+
+/* ── Scroll stage progress dots: hide on small screens ── */
+@media(max-width:480px){
+  #dn-progress-dots { right:.5rem; }
+  .dn-dot { width:5px; height:5px; }
+}
+
+/* ── Wholesale modal: bottom-sheet on mobile ── */
+@media(max-width:540px){
+  .dn-wholesale-modal { align-items:flex-end; padding:0; }
+  .dn-wholesale-box { border-radius:12px 12px 0 0; max-height:92vh; width:100%; max-width:100%; }
+  .dn-wholesale-header { border-radius:12px 12px 0 0; padding:1.2rem 1.2rem .9rem; }
+  .dn-wholesale-header h2 { font-size:1.1rem; }
+  .dn-wholesale-body { padding:1rem 1.2rem 1.4rem; }
+}
+
 /* ══════════════════════════════════════════════════════════════
    CART
    ══════════════════════════════════════════════════════════════ */
@@ -592,8 +729,8 @@ body {
 .dn-cart-badge { background:var(--primary); color:#fff; border-radius:50%; width:18px; height:18px; font-size:.6rem; font-weight:700; display:flex; align-items:center; justify-content:center; }
 .dn-cart-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; opacity:0; pointer-events:none; transition:opacity .35s; backdrop-filter:blur(4px); }
 .dn-cart-overlay.open { opacity:1; pointer-events:all; }
-.dn-cart-drawer { position:fixed; top:0; right:0; height:100%; width:min(400px,100vw); background:var(--white); z-index:201; display:flex; flex-direction:column; transform:translateX(100%); transition:transform .4s cubic-bezier(.77,0,.18,1); box-shadow:-4px 0 24px rgba(0,0,0,.1); }
-.dn-cart-drawer.open { transform:translateX(0); }
+.dn-cart-drawer { position:fixed; top:0; right:0; height:100%; width:min(400px,100vw); background:var(--white); z-index:201; display:flex; flex-direction:column; transform:translateX(100%); visibility:hidden; transition:transform .4s cubic-bezier(.77,0,.18,1), visibility 0s linear .4s; box-shadow:-4px 0 24px rgba(0,0,0,.1); }
+.dn-cart-drawer.open { transform:translateX(0); visibility:visible; transition:transform .4s cubic-bezier(.77,0,.18,1), visibility 0s linear 0s; }
 .dn-cart-head { display:flex; justify-content:space-between; align-items:center; padding:1.4rem 1.6rem; border-bottom:1px solid var(--border-light); }
 .dn-cart-title { font-family:'Fraunces',serif; font-size:1.2rem; color:var(--text-dark); font-weight:900; }
 .dn-cart-close { background:none; border:none; font-size:1.2rem; color:var(--text-mid); padding:.2rem .5rem; border-radius:2px; transition:all .2s; }
@@ -762,8 +899,8 @@ body {
 `;
 
 /* ─── CONSTANTS ────────────────────────────────────────────────── */
-const SINGLE_PRICE    = 599;
-const FAMILY_PACK_PRICE = 5990;
+const SINGLE_PRICE    = 49;
+const FAMILY_PACK_PRICE = 599;
 const KID_PRICE         = 399;   
 // const RAZORPAY_KEY_ID = "rzp_test_SlG1HvlDp3i5Fw"; // ← replace with your key
 
@@ -786,12 +923,14 @@ const PATIENT_CONDITIONS = [
 ];
 
 const REVIEWS = [
-  { text:"The red grip is so comfortable — I never feel like I'm pressing too hard. My dentist noticed my gums are healthier after just 2 months.", author:"Arjun M.", city:"Mumbai" },
-  { text:"My dentist actually noticed a difference at my last checkup. Less plaque, healthier gums. She asked what I'd changed — I showed her DENTALL.", author:"Priya S.", city:"Bangalore" },
-  { text:"The bristles are incredibly soft yet my teeth feel polished clean. It's the only toothbrush I've used that doesn't leave my gums sore.", author:"Riya K.", city:"Chennai" },
-  { text:"We got the family pack for all four of us. The schedule is genius — every 4 months we simply swap and we've never missed a replacement since.", author:"Vikram T.", city:"Pune" },
-  { text:"Worth every rupee. My kids actually look forward to brushing now. The red design is fun and the bristles are gentle enough for them.", author:"Sunita R.", city:"Delhi" },
-  { text:"Switched from an electric brush and honestly the clean feels just as thorough. The ergonomic handle makes all the difference.", author:"Karthik N.", city:"Hyderabad" },
+  { text:"Good brush, genuinely. Took me a week to get used to how soft the bristles are — felt too gentle at first. But my gums have stopped bleeding at the two-month mark so I can't argue with results.", author:"Arjun M." },
+  { text:"The grip is excellent. My only gripe is the packaging felt a little over-engineered for what's inside, but the brush itself is solid. Teeth feel clean after every use.", author:"Priya S." },
+  { text:"I was ready to return it after day one — bristles felt nothing like my old brand. Glad I gave it three weeks. Noticeably less sensitivity now and my gum line looks healthier.", author:"Riya K." },
+  { text:"Family pack is genuinely convenient. Would be even better if they offered a reminder app or email nudge for swap day. Small thing, but the brush quality makes up for it.", author:"Vikram T." },
+  { text:"Kids use it without being asked, which is basically a miracle. Colours are fun and the bristles are soft enough for them. Would love a smaller head size for younger children.", author:"Sunita R." },
+  { text:"Switched from a ₹3,000 electric brush. Not the same deep-clean sensation initially, but after six weeks my dentist said my plaque score actually improved. Happy with the switch.", author:"Karthik N." },
+  { text:"Delivery was quick and the build quality feels premium for the price. Bristles haven't frayed in 3.5 months of twice-daily use. That alone beats everything I've tried under ₹200.", author:"Meena V." },
+  { text:"Decent brush at a fair price. I wish the handle were slightly longer — I have large hands and it feels a bit short. The cleaning performance itself is legitimately good though.", author:"Rohit P." },
 ];
 
 const PRODUCTS = [
@@ -814,13 +953,13 @@ const PRODUCTS = [
     perks: ['Covers a family of 4', 'Change every 4 months', 'Free shipping'],
   },
   {
-    id:    'kids-brush',
-    icon:  '🌈',
-    name:  "Kids' Brush",
-    sub:   '1 brush · ultra-soft · ages 3–12',
-    price: KID_PRICE,
-    badge: 'New',
-    perks: ['Extra-soft bristles', 'Compact head', 'Fun grip colours'],
+    id:    'wholesale',
+    icon:  '🏭',
+    name:  'Wholesale',
+    sub:   'Bulk orders · clinics, retailers & distributors',
+    price: null,
+    badge: 'Wholesale',
+    perks: ['MOQ: 100 brushes', 'Custom branding available', 'Best volume pricing'],
   },
 ];
 const PHASES = [
@@ -1263,6 +1402,9 @@ export default function DentallApp() {
   const [errors, setErrors] = useState({});
   const [toast, setToast]   = useState({ show:false, msg:'' });
   const [showVideo, setShowVideo] = useState(false);
+  const [showWholesale, setShowWholesale] = useState(false);
+  const [wholesaleForm, setWholesaleForm] = useState({ name:'', business:'', email:'', phone:'', city:'', state:'', qty:'', message:'' });
+  const [wholesaleSubmitted, setWholesaleSubmitted] = useState(false);
 
   /* ── Cart ── */
   const [cartOpen, setCartOpen]   = useState(false);
@@ -1618,8 +1760,10 @@ export default function DentallApp() {
   /* ─── RENDER ─────────────────────────────────────────────────── */
   return (
     <>
-      <div className="dentall-cursor-dot"  style={{ left:cursorPos.x, top:cursorPos.y, width:cursorBig?18:10, height:cursorBig?18:10 }} />
-      <div className="dentall-cursor-ring" style={{ left:cursorPos.x, top:cursorPos.y }} />
+      {!showWholesale && !showVideo && <>
+        <div className="dentall-cursor-dot"  style={{ left:cursorPos.x, top:cursorPos.y, width:cursorBig?18:10, height:cursorBig?18:10 }} />
+        <div className="dentall-cursor-ring" style={{ left:cursorPos.x, top:cursorPos.y }} />
+      </>}
 
       <div className={`dn-toast ${toast.show?'show':''}`}>{toast.msg}</div>
 
@@ -1718,7 +1862,7 @@ export default function DentallApp() {
         <button className="dn-cart-btn" style={{fontSize:'1rem',padding:'.8rem 2rem'}} onClick={()=>{setDrawerOpen(false);setCartOpen(true);}}>
           🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
         </button>
-        <button className="dn-nav-cta" onClick={()=>scrollTo('order')}>Family Pack — ₹5,990</button>
+        <button className="dn-nav-cta" onClick={()=>scrollTo('order')}>Family Pack — ₹599</button>
       </div>
 
       {/* ── Hero ── */}
@@ -1727,21 +1871,14 @@ export default function DentallApp() {
   <div className="dn-hero-content">
     <div className="dn-hero-tag">Professional Dental Care</div>
     <h1 className="dn-h1">Brush with<br/><em>Confidence</em><br/>Every Day.</h1>
-    <p className="dn-hero-sub">DENTALL's precision-engineered bristle system and ergonomic grip deliver a dentist-quality clean — every single morning. Starting at just ₹599 per brush.</p>
+    <p className="dn-hero-sub">DENTALL's precision-engineered bristle system and ergonomic grip deliver a dentist-quality clean — every single morning. Starting at just ₹49 per brush.</p>
     <div className="dn-hero-ctas">
-      <button className="dn-btn-primary" onClick={()=>scrollTo('order')}>Shop Now — from ₹599</button>
+      <button className="dn-btn-primary" onClick={()=>scrollTo('order')}>Shop Now — from ₹49</button>
       <button className="dn-btn-ghost"   onClick={()=>scrollTo('scroll-stage')}>Explore Features</button>
     </div>
   </div>
   <div className="dn-hero-image-wrap">
     <BrushColorShowcase />
-    <div className="dn-hero-badge">
-      <div style={{fontSize:'1.3rem'}}>🦷</div>
-      <div>
-        <div className="dn-badge-label">Dentist Rating</div>
-        <div className="dn-badge-val">★★★★★ 4.9 / 5.0</div>
-      </div>
-    </div>
   </div>
   <div className="dn-scroll-hint">Scroll to explore</div>
 </section>
@@ -1784,7 +1921,7 @@ export default function DentallApp() {
               </div>
               <button className="dn-submit-btn" style={{margin:'1rem 0 0',fontSize:'.82rem'}} onClick={()=>scrollTo('order')}>Order Family Pack →</button>
               <button className="dn-add-cart-btn" style={{background:'rgba(255,255,255,.1)',borderColor:'rgba(255,255,255,.4)',color:'#fff',marginTop:'.6rem'}}
-                onClick={()=>addToCart({id:'family-pack',name:'Family Pack (12 brushes)',price:5990,icon:'🦷'})}>
+                onClick={()=>addToCart({id:'family-pack',name:'Family Pack (12 brushes)',price:599,icon:'🦷'})}>
                 🛒 Add to Cart
               </button>
             </div>
@@ -2005,14 +2142,14 @@ export default function DentallApp() {
             {[...REVIEWS,...REVIEWS,...REVIEWS].map((r,i)=>(
               <div key={i} className="dn-review-card">
                 <div className="dn-stars">★★★★★</div>
-                <div className="dn-review-text">"{r.text}"</div>
-                <div className="dn-review-author">{r.author} <span style={{color:'var(--text-light)',fontWeight:400}}>— {r.city}</span></div>
+                <div className="dn-review-text">{r.text}</div>
+                <div className="dn-review-author">{r.author}</div>
               </div>
             ))}
           </div>
         </div>
         <div className="dn-stats-row">
-          {[['99.3%','Plaque removed'],['12K+','Happy customers'],['4.9','Average rating'],['200+','Dentist partners']].map(([n,l])=>(
+          {[['99.3%','Plaque removed'],['12K+','Happy customers'],['4 months','Brush lifespan'],['50+','Cities delivered']].map(([n,l])=>(
             <div key={l} className="dn-stat">
               <div className="dn-stat-num">{n}</div>
               <div className="dn-stat-label">{l}</div>
@@ -2044,9 +2181,12 @@ export default function DentallApp() {
               <div className="dn-big-card-icon">{p.icon}</div>
               <div className="dn-big-card-name">{p.name}</div>
               <div className="dn-big-card-sub">{p.sub}</div>
-              <div className="dn-big-card-price">₹{p.price.toLocaleString('en-IN')}</div>
+              {p.id==='wholesale'
+                ? <div className="dn-big-card-price" style={{fontSize:'1.1rem',letterSpacing:'.04em'}}>Custom Pricing</div>
+                : <div className="dn-big-card-price">₹{p.price.toLocaleString('en-IN')}</div>
+              }
               <div className="dn-big-card-price-note">
-                {p.id==='family-pack' ? '≈ ₹499/person/year' : p.id==='kids-brush' ? 'Ultra-soft for ages 3–12' : 'Single brush · 4-month use'}
+                {p.id==='family-pack' ? '≈ ₹499/person/year' : p.id==='wholesale' ? 'Volume discounts · MOQ 100 units' : 'Single brush · 4-month use'}
               </div>
               <div className="dn-big-card-divider"/>
               <div className="dn-big-card-perks">
@@ -2056,10 +2196,15 @@ export default function DentallApp() {
                   </div>
                 ))}
               </div>
-              <button className="dn-big-card-btn"
-                onClick={()=>addToCart({id:p.id,name:p.name,price:p.price,icon:p.icon})}>
-                + Add to Cart
-              </button>
+              {p.id==='wholesale'
+                ? <button className="dn-big-card-btn dn-wholesale-btn" onClick={()=>setShowWholesale(true)}>
+                    Enquire for Wholesale
+                  </button>
+                : <button className="dn-big-card-btn"
+                    onClick={()=>addToCart({id:p.id,name:p.name,price:p.price,icon:p.icon})}>
+                    + Add to Cart
+                  </button>
+              }
             </div>
           ))}
         </div>
@@ -2076,9 +2221,6 @@ export default function DentallApp() {
       <footer className="dn-footer">
         <div className="dn-footer-logo">DENTALL</div>
         <div className="dn-footer-copy">© 2025 Dentall. All rights reserved.</div>
-        <div className="dn-footer-links">
-          <a href="#">Privacy</a><a href="#">Terms</a><a href="#">Contact</a>
-        </div>
       </footer>
 
       {/* ── Payment Modal ── */}
@@ -2271,6 +2413,105 @@ export default function DentallApp() {
               src="https://www.youtube.com/embed/y7_2sUZiBbc?autoplay=1&mute=1"
               title="Dentall Product Video" frameBorder="0"
               allow="autoplay; encrypted-media" allowFullScreen/>
+          </div>
+        </div>
+      )}
+
+      {/* ── Wholesale Enquiry Modal ── */}
+      {showWholesale && (
+        <div className="dn-wholesale-modal" onClick={()=>{setShowWholesale(false);setWholesaleSubmitted(false);}}>
+          <div className="dn-wholesale-backdrop"/>
+          <div className="dn-wholesale-box" onClick={e=>e.stopPropagation()}>
+            <div className="dn-wholesale-header">
+              <h2>Wholesale Enquiry</h2>
+              <p>Fill in your details — our team will contact you within 24 hours</p>
+              <button className="dn-wholesale-close" onClick={()=>{setShowWholesale(false);setWholesaleSubmitted(false);}}>✕</button>
+            </div>
+            {wholesaleSubmitted ? (
+              <div className="dn-wholesale-success">
+                <div className="dn-wholesale-success-icon">✅</div>
+                <h3>Enquiry Received!</h3>
+                <p>Thank you for your interest in DENTALL wholesale. Our sales team will reach out to you within 24 hours with pricing and details.</p>
+              </div>
+            ) : (
+              <form className="dn-wholesale-body" onSubmit={e=>{
+                e.preventDefault();
+                setWholesaleSubmitted(true);
+              }}>
+                <div className="dn-wholesale-grid">
+                  <div className="dn-wholesale-field">
+                    <label>Full Name *</label>
+                    <input required type="text" placeholder="Your name"
+                      value={wholesaleForm.name}
+                      onChange={e=>setWholesaleForm(f=>({...f,name:e.target.value}))}/>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>Business / Company Name *</label>
+                    <input required type="text" placeholder="Your business name"
+                      value={wholesaleForm.business}
+                      onChange={e=>setWholesaleForm(f=>({...f,business:e.target.value}))}/>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>Email Address *</label>
+                    <input required type="email" placeholder="you@example.com"
+                      value={wholesaleForm.email}
+                      onChange={e=>setWholesaleForm(f=>({...f,email:e.target.value}))}/>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>Phone Number *</label>
+                    <input required type="tel" placeholder="+91 98765 43210"
+                      value={wholesaleForm.phone}
+                      onChange={e=>setWholesaleForm(f=>({...f,phone:e.target.value}))}/>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>City *</label>
+                    <input required type="text" placeholder="City"
+                      value={wholesaleForm.city}
+                      onChange={e=>setWholesaleForm(f=>({...f,city:e.target.value}))}/>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>State *</label>
+                    <select required value={wholesaleForm.state}
+                      onChange={e=>setWholesaleForm(f=>({...f,state:e.target.value}))}>
+                      <option value="">Select state</option>
+                      {['Andhra Pradesh','Assam','Bihar','Delhi','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Odisha','Punjab','Rajasthan','Tamil Nadu','Telangana','Uttar Pradesh','Uttarakhand','West Bengal','Other'].map(s=>(
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>Quantity Required (brushes) *</label>
+                    <select required value={wholesaleForm.qty}
+                      onChange={e=>setWholesaleForm(f=>({...f,qty:e.target.value}))}>
+                      <option value="">Select quantity range</option>
+                      <option value="100-499">100 – 499</option>
+                      <option value="500-999">500 – 999</option>
+                      <option value="1000-4999">1,000 – 4,999</option>
+                      <option value="5000+">5,000+</option>
+                    </select>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>Business Type</label>
+                    <select value={wholesaleForm.type||''}
+                      onChange={e=>setWholesaleForm(f=>({...f,type:e.target.value}))}>
+                      <option value="">Select type</option>
+                      <option value="retailer">Retailer</option>
+                      <option value="distributor">Distributor</option>
+                      <option value="clinic">Dental Clinic / Hospital</option>
+                      <option value="pharmacy">Pharmacy</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="dn-wholesale-field full">
+                    <label>Additional Message</label>
+                    <textarea placeholder="Tell us more about your requirements, preferred delivery schedule, or any custom branding needs…"
+                      value={wholesaleForm.message}
+                      onChange={e=>setWholesaleForm(f=>({...f,message:e.target.value}))}/>
+                  </div>
+                </div>
+                <button type="submit" className="dn-wholesale-submit">Submit Wholesale Enquiry →</button>
+              </form>
+            )}
           </div>
         </div>
       )}

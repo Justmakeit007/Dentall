@@ -106,8 +106,11 @@ body {
 }
 .dn-logo {
   font-family:'Fraunces',serif; font-size:1.5rem; font-weight:900; letter-spacing:.05em;
-  color:var(--primary);
+  color:var(--primary); display:flex; flex-direction:column; align-items:flex-start; line-height:1;
 }
+.dn-logo-wordmark { position:relative; display:inline-block; }
+.dn-logo-tm { font-size:.55rem; font-weight:700; position:absolute; top:-.1em; right:-.9em; line-height:1; }
+.dn-logo-tagline { font-family:'DM Sans',sans-serif; font-size:.52rem; font-weight:500; letter-spacing:.08em; color:var(--text-mid); text-transform:uppercase; margin-top:.25rem; white-space:nowrap; }
 .dn-nav-links { display:flex; gap:2rem; align-items:center; }
 .dn-nav-links a { color:var(--text-mid); text-decoration:none; font-size:.8rem; letter-spacing:.1em; text-transform:uppercase; font-weight:600; transition:all .3s; }
 .dn-nav-links a:hover { color:var(--primary); }
@@ -250,7 +253,9 @@ body {
 .dn-video-title { font-family:'Fraunces',serif; font-size:clamp(1.8rem,3vw,3rem); color:#fff; font-weight:900; line-height:1.15; margin-bottom:3rem; text-align:center; position:relative; z-index:2; }
 .dn-video-title em { color:var(--primary); font-style:italic; }
 .dn-video-placeholder { position:relative; z-index:2; width:100%; max-width:900px; margin:0 auto; aspect-ratio:16/9; border-radius:4px; overflow:hidden; background:#1A1A1A; border:1px solid rgba(255,255,255,0.08); box-shadow:0 24px 60px rgba(0,0,0,.5); cursor:pointer; }
-.dn-video-grid { position:absolute; inset:0; background-image:linear-gradient(var(--primary-muted) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--accent) 4%,transparent) 1px,transparent 1px); background-size:40px 40px; }
+.dn-video-thumb { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+.dn-video-thumb-overlay { position:absolute; inset:0; background:linear-gradient(to bottom, rgba(0,0,0,.25) 0%, rgba(0,0,0,.55) 100%); }
+.dn-video-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(200,16,46,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(200,16,46,.04) 1px,transparent 1px); background-size:40px 40px; }
 .dn-video-glow { display:none; }
 .dn-video-corner { position:absolute; width:24px; height:24px; border-color:var(--primary); border-style:solid; opacity:.8; }
 .dn-video-corner-tl { top:16px; left:16px; border-width:2px 0 0 2px; }
@@ -1687,7 +1692,10 @@ export default function DentallApp() {
 
       {/* ── Nav ── */}
       <nav className="dn-nav">
-        <div className="dn-logo">DENTALL</div>
+        <div className="dn-logo">
+          <span className="dn-logo-wordmark">DENTALL<sup className="dn-logo-tm">®</sup></span>
+          <span className="dn-logo-tagline">a quality product from Brooks &amp; Meadows</span>
+        </div>
         <div className="dn-nav-links">
           <a href="#features-grid" onClick={e=>{e.preventDefault();scrollTo('features-grid')}}>Features</a>
           <a href="#social"        onClick={e=>{e.preventDefault();scrollTo('social')}}>Reviews</a>
@@ -1789,6 +1797,8 @@ export default function DentallApp() {
         <div className="dn-video-label">See it in action</div>
         <h2 className="dn-video-title">Two minutes.<br/><em>A lifetime</em> of better oral health.</h2>
         <div className="dn-video-placeholder" onClick={()=>setShowVideo(true)}>
+          <img className="dn-video-thumb" src="/image/thumbnail dentall.png" alt="Dentall product video thumbnail" loading="lazy"/>
+          <div className="dn-video-thumb-overlay"/>
           <div className="dn-video-grid"/><div className="dn-video-glow"/><div className="dn-video-scanline"/>
           <div className="dn-video-corner dn-video-corner-tl"/><div className="dn-video-corner dn-video-corner-tr"/>
           <div className="dn-video-corner dn-video-corner-bl"/><div className="dn-video-corner dn-video-corner-br"/>

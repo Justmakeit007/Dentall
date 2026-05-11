@@ -3,17 +3,15 @@
    ══════════════════════════════════════════════════════════════ */
 
 .dn-social { 
-  padding: 3rem 0; 
+  padding: 4rem 0 3.5rem; 
   background: var(--white); 
   overflow: hidden; 
-  min-height: 100vh; 
   display: flex; 
   flex-direction: column; 
-  justify-content: center; 
 }
 
 .dn-social-header { 
-  padding: 0 max(1.5rem, calc((100vw - 1280px)/2)) 1.5rem; 
+  padding: 0 max(1.5rem, calc((100vw - 1280px)/2)) 1.25rem; 
   text-align: center; 
 }
 
@@ -26,7 +24,7 @@
   position: relative; 
   width: 100%; 
   overflow: hidden; 
-  padding: 1rem 0 2rem; 
+  padding: 0.75rem 0 0.5rem; 
 }
 
 .dn-reviews-track-wrapper::before,
@@ -252,11 +250,11 @@
 /* ── Responsive ── */
 @media(max-width: 900px) { 
   .dn-social { 
-    padding: 4rem 0; 
+    padding: 3.5rem 0 3rem; 
   } 
   
   .dn-social-header { 
-    padding: 0 1.5rem 2rem; 
+    padding: 0 1.5rem 1.25rem; 
   } 
   
   .dn-stats-row { 
@@ -285,11 +283,11 @@
 
 @media(max-width: 480px) { 
   .dn-social { 
-    padding: 3rem 0; 
+    padding: 3rem 0 2.5rem; 
   } 
   
   .dn-social-header { 
-    padding: 0 1.2rem 1.5rem; 
+    padding: 0 1.2rem 1rem; 
   } 
   
   .dn-stats-row { 

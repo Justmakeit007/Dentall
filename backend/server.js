@@ -279,6 +279,26 @@ db.getConnection()
     if (migrated.affectedRows > 0)
       console.log(`✅ Approved ${migrated.affectedRows} existing review(s)`);
     console.log('✅ reviews table ready');
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS wholesale_enquiries (
+        id             INT AUTO_INCREMENT PRIMARY KEY,
+        full_name      VARCHAR(150) NOT NULL,
+        business_name  VARCHAR(180) NOT NULL,
+        email          VARCHAR(150) NOT NULL,
+        phone          VARCHAR(20)  NOT NULL,
+        city           VARCHAR(100) NOT NULL,
+        state          VARCHAR(100) NOT NULL,
+        quantity_range VARCHAR(30)  NOT NULL,
+        business_type  VARCHAR(60),
+        message        TEXT,
+        status         VARCHAR(40) DEFAULT 'new',
+        created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_email   (email),
+        INDEX idx_status  (status),
+        INDEX idx_created (created_at)
+      )
+    `);
+    console.log('wholesale_enquiries table ready');
     conn.release();
   })
   .catch(err  => {
@@ -457,6 +477,45 @@ async function generateReceiptPDF(customer, orderData) {
 // ============================================================
 //  STEP 10 — EMAIL RECEIPT SENDER
 // ============================================================
+function createMailTransport({ allowExpiredCerts = false } = {}) {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 465),
+    secure: String(process.env.SMTP_SECURE || 'true') !== 'false',
+    family: Number(process.env.SMTP_FAMILY || 4),
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT || 15000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT || 15000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT || 30000),
+    auth: { user: process.env.EMAIL_FROM, pass: process.env.EMAIL_PASS },
+    tls: {
+      servername: process.env.SMTP_HOST || 'smtp.gmail.com',
+      minVersion: 'TLSv1.2',
+      rejectUnauthorized: !allowExpiredCerts,
+    },
+  });
+}
+
+async function sendDentallMail(mailOptions) {
+  try {
+    return await createMailTransport().sendMail(mailOptions);
+  } catch (err) {
+    const errText = `${err.message || ''} ${err.code || ''}`;
+    const certExpired = /certificate has expired|CERT_HAS_EXPIRED/i.test(errText);
+    const ipv6Unreachable = /ENETUNREACH.*:465|network is unreachable/i.test(errText);
+    const allowFallback = !IS_PROD || process.env.SMTP_ALLOW_EXPIRED_CERTS === 'true';
+
+    if (ipv6Unreachable && process.env.SMTP_FAMILY !== '6') {
+      console.warn('SMTP IPv6 route unreachable; retrying Gmail SMTP over IPv4.');
+      return createMailTransport().sendMail(mailOptions);
+    }
+
+    if (!certExpired || !allowFallback) throw err;
+
+    console.warn('SMTP certificate expired; retrying with TLS certificate verification disabled for this email.');
+    return createMailTransport({ allowExpiredCerts: true }).sendMail(mailOptions);
+  }
+}
+
 async function sendReceiptEmail(customer, orderData) {
   if (!isValidEmail(customer.email)) {
     console.log('⚠️  Skipping email — invalid recipient');
@@ -465,14 +524,9 @@ async function sendReceiptEmail(customer, orderData) {
 
   const pdfBuffer = await generateReceiptPDF(customer, orderData);
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: process.env.EMAIL_FROM, pass: process.env.EMAIL_PASS },
-  });
-
   const trackUrl = `${process.env.SITE_URL}/#tracking?order=${orderData.orderId}`;
 
-  await transporter.sendMail({
+  await sendDentallMail({
     from:    `DENTALL 🦷 <${process.env.EMAIL_FROM}>`,
     to:      customer.email,
     subject: `✅ Your DENTALL Order #DNT-${orderData.orderId} — Receipt Enclosed`,
@@ -514,6 +568,103 @@ async function sendReceiptEmail(customer, orderData) {
   });
 
   console.log(`✅ PDF receipt emailed to ${customer.email.replace(/(.{2}).+(@.+)/, '$1****$2')}`);
+}
+
+async function generateWholesalePricingPDF(enquiry) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const chunks = [];
+    doc.on('data', c => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    doc.rect(0, 0, 612, 96).fill('#D30D2D');
+    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(28).text('DENTALL', 50, 28);
+    doc.font('Helvetica').fontSize(11).text('Wholesale Pricing Proposal', 50, 62);
+
+    doc.fillColor('#1f2933').font('Helvetica-Bold').fontSize(16).text('Thank you for your enquiry', 50, 125);
+    doc.font('Helvetica').fontSize(10).fillColor('#4b5563')
+      .text(`Prepared for: ${enquiry.name}`, 50, 152)
+      .text(`Business: ${enquiry.business}`, 50, 168)
+      .text(`Quantity range: ${enquiry.qty}`, 50, 184)
+      .text(`Location: ${enquiry.city}, ${enquiry.state}`, 50, 200);
+
+    doc.rect(50, 238, 512, 28).fill('#1f2933');
+    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(10)
+      .text('Order Slab', 66, 248)
+      .text('Indicative Unit Price', 240, 248)
+      .text('Notes', 390, 248);
+
+    const rows = [
+      ['100 - 499 brushes', 'Rs. 185 - 210', 'Starter wholesale slab'],
+      ['500 - 999 brushes', 'Rs. 160 - 184', 'Better retailer margin'],
+      ['1,000 - 4,999 brushes', 'Rs. 135 - 159', 'Distributor pricing'],
+      ['5,000+ brushes', 'Custom quote', 'Best landed pricing'],
+    ];
+
+    let y = 280;
+    rows.forEach((row, index) => {
+      if (index % 2 === 0) doc.rect(50, y - 8, 512, 32).fill('#fff5f7');
+      doc.fillColor('#1f2933').font('Helvetica').fontSize(10)
+        .text(row[0], 66, y)
+        .text(row[1], 240, y)
+        .text(row[2], 390, y, { width: 150 });
+      y += 36;
+    });
+
+    y += 16;
+    doc.fillColor('#D30D2D').font('Helvetica-Bold').fontSize(13).text('Included benefits', 50, y);
+    y += 24;
+    [
+      'MOQ starts at 100 brushes.',
+      'Custom branding and packaging available for qualifying orders.',
+      'Final quote depends on quantity, branding, delivery location, and tax invoice details.',
+      'Sales team will contact you within 24 hours with a confirmed quotation.',
+    ].forEach(item => {
+      doc.fillColor('#4b5563').font('Helvetica').fontSize(10).text(`- ${item}`, 62, y);
+      y += 18;
+    });
+
+    doc.rect(50, 640, 512, 72).fill('#f3f4f6');
+    doc.fillColor('#1f2933').font('Helvetica-Bold').fontSize(11).text('Next step', 68, 658);
+    doc.font('Helvetica').fontSize(10).fillColor('#4b5563')
+      .text('Reply to this email with GST details, delivery pincode, and preferred quantity for a formal invoice-ready quote.', 68, 678, { width: 470 });
+
+    doc.fillColor('#6b7280').fontSize(8)
+      .text('This PDF contains indicative wholesale pricing only. Taxes, freight, and branding charges may vary.', 50, 762, { align: 'center', width: 512 })
+      .text('DENTALL - support@dentall.in', 50, 778, { align: 'center', width: 512 });
+
+    doc.end();
+  });
+}
+
+async function sendWholesalePricingEmail(enquiry) {
+  if (!isValidEmail(enquiry.email)) return;
+
+  const pdfBuffer = await generateWholesalePricingPDF(enquiry);
+  await sendDentallMail({
+    from: `DENTALL Wholesale <${process.env.EMAIL_FROM}>`,
+    to: enquiry.email,
+    subject: 'DENTALL Wholesale Pricing PDF',
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto">
+        <div style="background:#D30D2D;color:#fff;padding:24px;border-radius:10px 10px 0 0">
+          <h1 style="margin:0;font-size:24px">DENTALL Wholesale</h1>
+          <p style="margin:6px 0 0">Your pricing PDF is attached.</p>
+        </div>
+        <div style="border:1px solid #eee;border-top:0;padding:24px;color:#333;line-height:1.7">
+          <p>Hi ${sanitizeStr(enquiry.name)},</p>
+          <p>Thanks for your wholesale enquiry for <strong>${sanitizeStr(enquiry.business)}</strong>. We have received your requirement for <strong>${sanitizeStr(enquiry.qty)}</strong> brushes.</p>
+          <p>Our sales team will contact you within 24 hours with confirmed pricing, delivery options, and any custom branding details.</p>
+          <p style="font-size:12px;color:#777">The attached PDF contains indicative slabs for quick planning.</p>
+        </div>
+      </div>`,
+    attachments: [{
+      filename: 'DENTALL-Wholesale-Pricing.pdf',
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    }],
+  });
 }
 
 // ============================================================
@@ -968,6 +1119,49 @@ app.get('/api/orders', adminAuthMiddleware, async (req, res) => {
   }
 });
 
+app.post('/api/wholesale-enquiries', leadLimiter, async (req, res) => {
+  const enquiry = {
+    name: sanitizeStr(req.body?.name, 150),
+    business: sanitizeStr(req.body?.business, 180),
+    email: sanitizeStr(req.body?.email, 150).toLowerCase(),
+    phone: sanitizePhone(req.body?.phone),
+    city: sanitizeStr(req.body?.city, 100),
+    state: sanitizeStr(req.body?.state, 100),
+    qty: sanitizeStr(req.body?.qty, 30),
+    type: sanitizeStr(req.body?.type, 60),
+    message: sanitizeStr(req.body?.message, 1200),
+  };
+
+  const validQtyRanges = new Set(['100-499', '500-999', '1000-4999', '5000+']);
+  if (!enquiry.name) return res.status(400).json({ error: 'Full name is required.' });
+  if (!enquiry.business) return res.status(400).json({ error: 'Business name is required.' });
+  if (!isValidEmail(enquiry.email)) return res.status(400).json({ error: 'Valid email address is required.' });
+  if (!isValidPhone(enquiry.phone)) return res.status(400).json({ error: 'Valid phone number is required.' });
+  if (!enquiry.city) return res.status(400).json({ error: 'City is required.' });
+  if (!enquiry.state) return res.status(400).json({ error: 'State is required.' });
+  if (!validQtyRanges.has(enquiry.qty)) return res.status(400).json({ error: 'Valid quantity range is required.' });
+
+  try {
+    const [result] = await db.execute(
+      `INSERT INTO wholesale_enquiries
+       (full_name, business_name, email, phone, city, state, quantity_range, business_type, message, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`,
+      [enquiry.name, enquiry.business, enquiry.email, enquiry.phone, enquiry.city, enquiry.state, enquiry.qty, enquiry.type, enquiry.message]
+    );
+
+    try {
+      await sendWholesalePricingEmail(enquiry);
+    } catch (mailErr) {
+      console.error('Wholesale pricing email failed:', mailErr.message);
+    }
+
+    res.json({ success: true, enquiryId: result.insertId });
+  } catch (e) {
+    console.error('Wholesale enquiry failed:', e.message);
+    res.status(500).json({ error: 'Could not save wholesale enquiry. Please try again.' });
+  }
+});
+
 // ============================================================
 //  ROUTE: POST /api/capture-lead
 //  Saves email leads and sends welcome/discount email.
@@ -994,12 +1188,7 @@ app.post('/api/capture-lead', leadLimiter, async (req, res) => {
 
   // Send offer email (non-blocking)
   try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: process.env.EMAIL_FROM, pass: process.env.EMAIL_PASS },
-    });
-
-    await transporter.sendMail({
+    await sendDentallMail({
       from:    `DENTALL 🦷 <${process.env.EMAIL_FROM}>`,
       to:      email,
       subject: '🦷 Special Offer Just for You — 10% Off Your First DENTALL Order!',

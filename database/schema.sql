@@ -52,3 +52,21 @@ CREATE TABLE IF NOT EXISTS orders (
   INDEX idx_approved (approved),
   INDEX idx_created (created_at)
 );
+
+CREATE TABLE IF NOT EXISTS wholesale_enquiries (
+  id             INT AUTO_INCREMENT PRIMARY KEY,
+  full_name      VARCHAR(150) NOT NULL,
+  business_name  VARCHAR(180) NOT NULL,
+  email          VARCHAR(150) NOT NULL,
+  phone          VARCHAR(20)  NOT NULL,
+  city           VARCHAR(100) NOT NULL,
+  state          VARCHAR(100) NOT NULL,
+  quantity_range VARCHAR(30)  NOT NULL,
+  business_type  VARCHAR(60),
+  message        TEXT,
+  status         VARCHAR(40) DEFAULT 'new',
+  created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_email   (email),
+  INDEX idx_status  (status),
+  INDEX idx_created (created_at)
+);

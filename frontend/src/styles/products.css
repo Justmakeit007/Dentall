@@ -106,6 +106,10 @@
   background: linear-gradient(160deg, #fff 50%, var(--primary-pale)); 
 }
 
+.dn-big-card.wholesale {
+  border-color: rgba(211, 13, 45, 0.32);
+}
+
 .dn-big-card-ribbon { 
   position: absolute; 
   top: 0; 
@@ -149,6 +153,25 @@
 .dn-big-card-price-note { 
   font-size: 0.6rem; 
   color: var(--text-light); 
+}
+
+.dn-big-card.wholesale .dn-big-card-price {
+  font-size: 0;
+}
+
+.dn-big-card.wholesale .dn-big-card-price::before {
+  content: "Custom Pricing";
+  font-size: 1.45rem;
+  letter-spacing: 0.02em;
+}
+
+.dn-big-card.wholesale .dn-big-card-price-note {
+  font-size: 0;
+}
+
+.dn-big-card.wholesale .dn-big-card-price-note::before {
+  content: "Volume discounts · MOQ 100 units";
+  font-size: 0.6rem;
 }
 
 .dn-big-card-divider { 
@@ -196,6 +219,186 @@
 
 .dn-big-card-btn:hover { 
   background: var(--primary-dark); 
+}
+
+.dn-wholesale-btn,
+.dn-big-card.wholesale .dn-big-card-btn {
+  background: #a60920;
+}
+
+.dn-wholesale-btn:hover,
+.dn-big-card.wholesale .dn-big-card-btn:hover {
+  background: #860719;
+}
+
+.dn-wholesale-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.dn-wholesale-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(18, 18, 18, 0.72);
+  backdrop-filter: blur(5px);
+}
+
+.dn-wholesale-box {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: min(88vh, 760px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32);
+}
+
+.dn-wholesale-header {
+  background: var(--primary);
+  color: #fff;
+  padding: 1.7rem 1.8rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dn-wholesale-header h2 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.45rem;
+  line-height: 1.1;
+  margin: 0 0 0.35rem;
+}
+
+.dn-wholesale-header p {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.dn-wholesale-close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dn-wholesale-body {
+  padding: 1.8rem;
+}
+
+.dn-wholesale-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 0.9rem;
+}
+
+.dn-wholesale-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.dn-wholesale-field.full {
+  grid-column: 1 / -1;
+}
+
+.dn-wholesale-field label {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5f6672;
+}
+
+.dn-wholesale-field input,
+.dn-wholesale-field select,
+.dn-wholesale-field textarea {
+  width: 100%;
+  border: 1px solid #d9dce1;
+  border-radius: 5px;
+  padding: 0.74rem 0.8rem;
+  font: inherit;
+  font-size: 0.86rem;
+  color: #242936;
+  background: #fff;
+}
+
+.dn-wholesale-field textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.dn-wholesale-error {
+  margin-top: 1rem;
+  border: 1px solid rgba(211, 13, 45, 0.22);
+  background: rgba(211, 13, 45, 0.07);
+  color: var(--primary);
+  border-radius: 6px;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.dn-wholesale-submit {
+  width: 100%;
+  margin-top: 1.2rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--primary);
+  color: #fff;
+  padding: 0.9rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.dn-wholesale-submit:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.dn-wholesale-success {
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.dn-wholesale-success-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 176, 135, 0.12);
+  color: var(--success);
+  font-size: 1.6rem;
+  font-weight: 900;
+}
+
+.dn-wholesale-success h3 {
+  font-family: 'Fraunces', serif;
+  margin: 0 0 0.5rem;
+  color: var(--text-dark);
+}
+
+.dn-wholesale-success p {
+  margin: 0 auto;
+  max-width: 420px;
+  color: var(--text-mid);
+  line-height: 1.7;
 }
 
 .dn-big-card.featured .dn-big-card-btn { 
@@ -308,6 +511,20 @@
   .dn-order { 
     padding: 2rem 1.2rem; 
   } 
+
+  .dn-wholesale-modal {
+    align-items: flex-start;
+    padding: 1rem;
+  }
+
+  .dn-wholesale-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dn-wholesale-header,
+  .dn-wholesale-body {
+    padding: 1.35rem;
+  }
 }
 
 @media(max-width: 600px){

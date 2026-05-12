@@ -4,6 +4,7 @@ import BrushColorShowcase from "./components/BrushColorShowcase";
 import ReviewFormSection from "./components/ReviewFormSection";
 import ShipmentPage from "./components/ShipmentPage";
 import TrackingSection from "./components/TrackingSection";
+import videoThumbnail from "./assets/thumbnail dentall.png";
 import {
   FAMILY_PACK_PRICE,
   FEATURES,
@@ -39,6 +40,21 @@ export default function DentallApp() {
   const [errors, setErrors] = useState({});
   const [toast, setToast]   = useState({ show:false, msg:'' });
   const [showVideo, setShowVideo] = useState(false);
+  const [showWholesale, setShowWholesale] = useState(false);
+  const [wholesaleSubmitted, setWholesaleSubmitted] = useState(false);
+  const [wholesaleSubmitting, setWholesaleSubmitting] = useState(false);
+  const [wholesaleError, setWholesaleError] = useState('');
+  const [wholesaleForm, setWholesaleForm] = useState({
+    name: '',
+    business: '',
+    email: '',
+    phone: '',
+    city: '',
+    state: '',
+    qty: '',
+    type: '',
+    message: '',
+  });
 
   /* ── Cart ── */
   const [cartOpen, setCartOpen]   = useState(false);
@@ -226,6 +242,33 @@ export default function DentallApp() {
   const showToast = (msg) => {
     setToast({ show:true, msg });
     setTimeout(() => setToast({ show:false, msg:'' }), 3500);
+  };
+
+  const closeWholesale = () => {
+    setShowWholesale(false);
+    setWholesaleSubmitted(false);
+    setWholesaleError('');
+  };
+
+  const submitWholesaleEnquiry = async (e) => {
+    e.preventDefault();
+    setWholesaleSubmitting(true);
+    setWholesaleError('');
+    try {
+      const res = await fetch('/api/wholesale-enquiries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(wholesaleForm),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not submit enquiry. Please try again.');
+      setWholesaleSubmitted(true);
+      showToast('Wholesale enquiry submitted. Pricing PDF sent to your email.');
+    } catch (err) {
+      setWholesaleError(err.message || 'Could not submit enquiry. Please try again.');
+    } finally {
+      setWholesaleSubmitting(false);
+    }
   };
 
   /* ── Fetch live shipping cost from Shiprocket via backend ── */
@@ -509,8 +552,9 @@ export default function DentallApp() {
 
       {/* ── Nav ── */}
       <nav className="dn-nav">
-        <div className="dn-logo"><div className="dn-logo">
-  DENTALL<sup>®</sup>
+        <div className="dn-logo"><div className="dn-logo">DENTALL<sup>®</sup>
+        <span className="dn-logo-tagline">a quality product from Brooks &amp; Meadows</span>
+  
 </div></div>
         <div className="dn-nav-links">
           <a href="#features-grid" onClick={e=>{e.preventDefault();scrollTo('features-grid')}}>Features</a>
@@ -536,7 +580,7 @@ export default function DentallApp() {
         <button className="dn-cart-btn" style={{fontSize:'1rem',padding:'.8rem 2rem'}} onClick={()=>{setDrawerOpen(false);setCartOpen(true);}}>
           🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
         </button>
-        <button className="dn-nav-cta" onClick={()=>scrollTo('order')}>Family Pack — ₹5,990</button>
+        <button className="dn-nav-cta" onClick={()=>scrollTo('order')}>Family Pack — ₹599</button>
       </div>
 
       {/* ── Hero ── */}
@@ -545,7 +589,7 @@ export default function DentallApp() {
   <div className="dn-hero-content">
     <div className="dn-hero-tag">Professional Dental Care</div>
     <h1 className="dn-h1">Brush with<br/><em>Confidence</em><br/>Every Day.</h1>
-    <p className="dn-hero-sub">DENTALL's precision-engineered bristle system and ergonomic grip deliver a dentist-quality clean — every single morning. Starting at just ₹599 per brush.</p>
+    <p className="dn-hero-sub">DENTALL's precision-engineered bristle system and ergonomic grip deliver a dentist-quality clean — every single morning. Starting at just ₹49 per brush.</p>
     <div className="dn-hero-ctas">
       <button className="dn-btn-primary" onClick={()=>scrollTo('order')}>Shop Now — from ₹599</button>
       <button className="dn-btn-ghost"   onClick={()=>scrollTo('scroll-stage')}>Explore Features</button>
@@ -571,11 +615,11 @@ export default function DentallApp() {
             <div className="dn-pack-label">The smart way to stock up</div>
             <h2 className="dn-pack-title">One pack.<br/><em>A full year</em> of fresh smiles for the whole family.</h2>
             <p className="dn-pack-desc">
-              Dentists recommend replacing your toothbrush every <strong style={{color:'#fff'}}>4 months</strong> — that's 3 brushes per person per year.
+              Dentists recommend replacing your toothbrush every <strong style={{color:'#fff'}}>3 months</strong> — that's 4 brushes per person per year.
               Our Family Pack of <strong style={{color:'#fff'}}>12 brushes</strong> covers a family of 4 for a full year — no reordering, no forgetting.
             </p>
             <div className="dn-pack-perks" style={{marginTop:'1.5rem'}}>
-              {['12 brushes in one box','Covers 4 people × 12 months','Change every 4 months','Free shipping included','Never run out mid-year'].map(p=>(
+              {['12 brushes in one box','Covers 4 people × 12 months','Change every 3 months','Free shipping included','Never run out mid-year'].map(p=>(
                 <div key={p} className="dn-pack-perk"><div className="dn-pack-perk-dot"/> {p}</div>
               ))}
             </div>
@@ -594,7 +638,7 @@ export default function DentallApp() {
             <div className="dn-pack-math">
               <div className="dn-pack-math-row"><span>Per brush</span><strong>₹50</strong></div>
               <div className="dn-pack-math-row"><span>Family pack (12 brushes)</span><strong>₹599</strong></div>
-              <div className="dn-pack-math-row"><span>Per person per year</span><strong>₹150</strong></div>
+              {/* <div className="dn-pack-math-row"><span>Per person per year</span><strong>₹150</strong></div> */}
               <div className="dn-pack-math-divider"/>
               <div className="dn-pack-math-total">
                 <div className="dn-pack-math-total-label">Family pack total</div>
@@ -602,7 +646,7 @@ export default function DentallApp() {
               </div>
               <button className="dn-submit-btn" style={{margin:'1rem 0 0',fontSize:'.82rem'}} onClick={()=>scrollTo('order')}>Order Family Pack →</button>
               <button className="dn-add-cart-btn" style={{background:'rgba(255,255,255,.1)',borderColor:'rgba(255,255,255,.4)',color:'#fff',marginTop:'.6rem'}}
-                onClick={()=>addToCart({id:'family-pack',name:'Family Pack (12 brushes)',price:5990,icon:'🦷'})}>
+                onClick={()=>addToCart({id:'family-pack',name:'Family Pack (12 brushes)',price:599,icon:'🦷'})}>
                 🛒 Add to Cart
               </button>
             </div>
@@ -611,15 +655,12 @@ export default function DentallApp() {
       </section>
 
       {/* ── Video ── */}
-      <section className="dn-video-section" id="video">
+         <section className="dn-video-section" id="video">
         <div className="dn-video-label">See it in action</div>
         <h2 className="dn-video-title">Two minutes.<br/><em>A lifetime</em> of better oral health.</h2>
         <div className="dn-video-placeholder" onClick={()=>setShowVideo(true)}>
-          <img
-            className="dn-video-thumbnail"
-            src="https://img.youtube.com/vi/y7_2sUZiBbc/maxresdefault.jpg"
-            alt="Dentall product video thumbnail"
-          />
+          <img className="dn-video-thumb" src={videoThumbnail} alt="Dentall product video thumbnail" loading="lazy"/>
+          <div className="dn-video-thumb-overlay"/>
           <div className="dn-video-grid"/><div className="dn-video-glow"/><div className="dn-video-scanline"/>
           <div className="dn-video-corner dn-video-corner-tl"/><div className="dn-video-corner dn-video-corner-tr"/>
           <div className="dn-video-corner dn-video-corner-bl"/><div className="dn-video-corner dn-video-corner-br"/>
@@ -862,7 +903,7 @@ export default function DentallApp() {
           <div className="dn-order-title">Choose your pack. <em>Start smiling better.</em></div>
           <div className="dn-order-desc" style={{maxWidth:520,margin:'0 auto .6rem'}}>Free shipping across India · 30-day return guarantee · Razorpay secured</div>
           <div className="dn-order-perk-chips">
-            {['✓ Dentist recommended','✓ 12K+ happy customers','✓ Change every 4 months','✓ BPA-free materials','✓ Free shipping'].map(c=>(
+            {['✓ Dentist recommended','✓ 12K+ happy customers','✓ Change every 3 months','✓ BPA-free materials','✓ Free shipping'].map(c=>(
               <span key={c} className="dn-order-perk-chip">{c}</span>
             ))}
           </div>
@@ -871,7 +912,7 @@ export default function DentallApp() {
         {/* Big product cards */}
         <div className="dn-products-big-grid">
           {PRODUCTS.map(p => (
-            <div key={p.id} className={`dn-big-card ${p.badge==='Best Value'?'featured':''}`}>
+            <div key={p.id} className={`dn-big-card ${p.badge==='Best Value'?'featured':''} ${p.id==='wholesale'?'wholesale':''}`}>
               {p.badge && <div className="dn-big-card-ribbon">{p.badge}</div>}
               <div className="dn-big-card-icon">{p.icon}</div>
               <div className="dn-big-card-name">{p.name}</div>
@@ -889,8 +930,8 @@ export default function DentallApp() {
                 ))}
               </div>
               <button className="dn-big-card-btn"
-                onClick={()=>addToCart({id:p.id,name:p.name,price:p.price,icon:p.icon})}>
-                + Add to Cart
+                onClick={()=>p.id === 'wholesale' ? setShowWholesale(true) : addToCart({id:p.id,name:p.name,price:p.price,icon:p.icon})}>
+                {p.id === 'wholesale' ? 'Enquire for Wholesale' : '+ Add to Cart'}
               </button>
             </div>
           ))}
@@ -902,6 +943,100 @@ export default function DentallApp() {
       </section>
 
       {/* ── Tracking ── */}
+      {showWholesale && (
+        <div className="dn-wholesale-modal" onClick={closeWholesale}>
+          <div className="dn-wholesale-backdrop" />
+          <div className="dn-wholesale-box" onClick={e=>e.stopPropagation()}>
+            <div className="dn-wholesale-header">
+              <div>
+                <h2>Wholesale Enquiry</h2>
+                <p>Fill in your details - our team will contact you within 24 hours</p>
+              </div>
+              <button className="dn-wholesale-close" onClick={closeWholesale} aria-label="Close wholesale enquiry">x</button>
+            </div>
+            {wholesaleSubmitted ? (
+              <div className="dn-wholesale-success">
+                <div className="dn-wholesale-success-icon">✓</div>
+                <h3>Enquiry Received!</h3>
+                <p>Thank you for your interest in DENTALL wholesale. We have emailed your pricing PDF and saved your enquiry for our sales team.</p>
+              </div>
+            ) : (
+              <form className="dn-wholesale-body" onSubmit={submitWholesaleEnquiry}>
+                <div className="dn-wholesale-grid">
+                  <div className="dn-wholesale-field">
+                    <label>Full Name *</label>
+                    <input required type="text" placeholder="Your name" value={wholesaleForm.name}
+                      onChange={e=>setWholesaleForm(f=>({...f,name:e.target.value}))}/>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>Business / Company Name *</label>
+                    <input required type="text" placeholder="Your business name" value={wholesaleForm.business}
+                      onChange={e=>setWholesaleForm(f=>({...f,business:e.target.value}))}/>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>Email Address *</label>
+                    <input required type="email" placeholder="you@example.com" value={wholesaleForm.email}
+                      onChange={e=>setWholesaleForm(f=>({...f,email:e.target.value}))}/>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>Phone Number *</label>
+                    <input required type="tel" placeholder="+91 98765 43210" value={wholesaleForm.phone}
+                      onChange={e=>setWholesaleForm(f=>({...f,phone:e.target.value}))}/>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>City *</label>
+                    <input required type="text" placeholder="City" value={wholesaleForm.city}
+                      onChange={e=>setWholesaleForm(f=>({...f,city:e.target.value}))}/>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>State *</label>
+                    <select required value={wholesaleForm.state}
+                      onChange={e=>setWholesaleForm(f=>({...f,state:e.target.value}))}>
+                      <option value="">Select state</option>
+                      {INDIA_STATES.map(s=><option key={s} value={s}>{s}</option>)}
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>Quantity Required (brushes) *</label>
+                    <select required value={wholesaleForm.qty}
+                      onChange={e=>setWholesaleForm(f=>({...f,qty:e.target.value}))}>
+                      <option value="">Select quantity range</option>
+                      <option value="100-499">100 - 499</option>
+                      <option value="500-999">500 - 999</option>
+                      <option value="1000-4999">1,000 - 4,999</option>
+                      <option value="5000+">5,000+</option>
+                    </select>
+                  </div>
+                  <div className="dn-wholesale-field">
+                    <label>Business Type</label>
+                    <select value={wholesaleForm.type}
+                      onChange={e=>setWholesaleForm(f=>({...f,type:e.target.value}))}>
+                      <option value="">Select type</option>
+                      <option value="retailer">Retailer</option>
+                      <option value="distributor">Distributor</option>
+                      <option value="clinic">Dental Clinic / Hospital</option>
+                      <option value="pharmacy">Pharmacy</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="dn-wholesale-field full">
+                    <label>Additional Message</label>
+                    <textarea placeholder="Tell us more about your requirements, preferred delivery schedule, or custom branding needs..."
+                      value={wholesaleForm.message}
+                      onChange={e=>setWholesaleForm(f=>({...f,message:e.target.value}))}/>
+                  </div>
+                </div>
+                {wholesaleError && <div className="dn-wholesale-error">{wholesaleError}</div>}
+                <button type="submit" className="dn-wholesale-submit" disabled={wholesaleSubmitting}>
+                  {wholesaleSubmitting ? 'Submitting...' : 'Submit Wholesale Enquiry ->'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
       <TrackingSection />
 
       {/* ── Footer ── */}
@@ -1109,7 +1244,6 @@ export default function DentallApp() {
           </div>
         </div>
       )}
-
     </>
   );
 }

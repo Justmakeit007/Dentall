@@ -1,7 +1,6 @@
 /* ─── CONSTANTS ────────────────────────────────────────────────── */
-export const SINGLE_PRICE    = 599;
-export const FAMILY_PACK_PRICE = 5990;
-export const KID_PRICE         = 399;   
+export const SINGLE_PRICE    = 49;
+export const FAMILY_PACK_PRICE = 599;
 // const RAZORPAY_KEY_ID = "rzp_test_SlG1HvlDp3i5Fw"; // ← replace with your key
 
 export const FEATURES = [
@@ -51,13 +50,13 @@ export const PRODUCTS = [
     perks: ['Covers a family of 4', 'Change every 4 months', 'Free shipping'],
   },
   {
-    id:    'kids-brush',
-    icon:  '🌈',
-    name:  "Kids' Brush",
-    sub:   '1 brush · ultra-soft · ages 3–12',
-    price: KID_PRICE,
-    badge: 'New',
-    perks: ['Extra-soft bristles', 'Compact head', 'Fun grip colours'],
+    id:    'wholesale',
+    name:  'Wholesale',
+    icon:  '🏭',
+    sub:   'Bulk orders · clinics, retailers & distributors',
+    price: 0,
+    badge: 'Wholesale',
+    perks: ['MOQ: 100 brushes', 'Custom branding available', 'Best volume pricing'],
   },
 ];
 export const PHASES = [

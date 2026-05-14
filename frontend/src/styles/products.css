@@ -107,7 +107,7 @@
 }
 
 .dn-big-card.wholesale {
-  border-color: rgba(211, 13, 45, 0.32);
+  border-color: color-mix(in srgb, var(--secondary) 34%, transparent);
 }
 
 .dn-big-card-ribbon { 
@@ -223,12 +223,12 @@
 
 .dn-wholesale-btn,
 .dn-big-card.wholesale .dn-big-card-btn {
-  background: #a60920;
+  background: var(--secondary);
 }
 
 .dn-wholesale-btn:hover,
 .dn-big-card.wholesale .dn-big-card-btn:hover {
-  background: #860719;
+  background: color-mix(in srgb, var(--secondary) 82%, #263047);
 }
 
 .dn-wholesale-modal {
@@ -341,8 +341,8 @@
 
 .dn-wholesale-error {
   margin-top: 1rem;
-  border: 1px solid rgba(211, 13, 45, 0.22);
-  background: rgba(211, 13, 45, 0.07);
+  border: 1px solid color-mix(in srgb, var(--danger) 26%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
   color: var(--primary);
   border-radius: 6px;
   padding: 0.75rem 0.9rem;

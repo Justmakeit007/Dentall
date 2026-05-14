@@ -219,6 +219,51 @@
   color: var(--primary); 
 }
 
+/* ── Floating social chat bubbles */
+.dn-social-bubble-wrapper {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  z-index: 1000;
+}
+
+.dn-social-bubble {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transition: transform 0.3s ease;
+}
+
+.dn-social-bubble:hover {
+  transform: scale(1.1);
+}
+
+.dn-social-icon {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+@media(max-width: 640px) {
+  .dn-social-bubble-wrapper {
+    right: 0.7rem;
+    bottom: 3.5rem;
+    gap: 0.65rem;
+  }
+  .dn-social-bubble {
+    width: 46px;
+    height: 46px;
+    font-size: 1.1rem;
+  }
+}
+
 .dn-qty-val { 
   background: var(--off-white); 
   border: 1px solid var(--border-mid); 

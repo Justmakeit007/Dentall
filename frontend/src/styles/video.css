@@ -4,7 +4,7 @@
 
 .dn-video-section { 
   padding: 3rem max(1.5rem, calc((100vw - 1280px)/2)); 
-  background: #0D0D0D; 
+  background: #1a2642;; 
   position: relative; 
   overflow: hidden; 
   min-height: 100vh; 
@@ -176,7 +176,7 @@
   z-index: 3;
 }
 
-.dn-video-scanline { 
+/* .dn-video-scanline { 
   position: absolute; 
   top: 0; 
   left: 0; 
@@ -185,7 +185,7 @@
   background: rgba(200, 16, 46, 0.3); 
   animation: scanline 4s linear infinite; 
   z-index: 4;
-}
+} */
 
 .dn-video-duration { 
   position: absolute; 

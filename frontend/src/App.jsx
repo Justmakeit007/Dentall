@@ -4,7 +4,7 @@ import BrushColorShowcase from "./components/BrushColorShowcase";
 import ReviewFormSection from "./components/ReviewFormSection";
 import ShipmentPage from "./components/ShipmentPage";
 import TrackingSection from "./components/TrackingSection";
-import videoThumbnail from "./assets/thumbnail dentall.png";
+import videoThumbnail from "./assets/dentall-video-thumbnail1.png";
 import {
   FAMILY_PACK_PRICE,
   FEATURES,
@@ -357,7 +357,7 @@ export default function DentallApp() {
       currency:    'INR',
       name:        'DENTALL',
       description: 'Professional toothbrushes',
-      image:       '/image/green.png',
+      image:       '/image/brush.png',
       order_id:    rzpOrderId,
       prefill: {
         name:    (form.fname + ' ' + form.lname).trim(),
@@ -571,6 +571,36 @@ export default function DentallApp() {
         </button>
       </nav>
 
+      <div className="dn-social-bubble-wrapper">
+  <a
+    className="dn-social-bubble dn-social-whatsapp"
+    href="https://wa.me/919999999999?text=Hi%20DENTALL%20team%2C%20I%20have%20a%20question%20about%20your%20product"
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="Chat with Dentall on WhatsApp"
+  >
+    <img
+      src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg"
+      alt="WhatsApp"
+      className="dn-social-icon"
+    />
+  </a>
+
+  <a
+    className="dn-social-bubble dn-social-instagram"
+    href="https://instagram.com"
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="Visit Dentall on Instagram"
+  >
+    <img
+      src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png"
+      alt="Instagram"
+      className="dn-social-icon"
+    />
+  </a>
+</div>
+
       <div className={`dn-drawer ${drawerOpen?'open':''}`}>
         <a href="#features-grid" onClick={e=>{e.preventDefault();scrollTo('features-grid')}}>Features</a>
         <a href="#social"        onClick={e=>{e.preventDefault();scrollTo('social')}}>Reviews</a>
@@ -597,13 +627,13 @@ export default function DentallApp() {
   </div>
   <div className="dn-hero-image-wrap">
     <BrushColorShowcase />
-    <div className="dn-hero-badge">
+    {/* <div className="dn-hero-badge">
       <div style={{fontSize:'1.3rem'}}>🦷</div>
       <div>
         <div className="dn-badge-label">Dentist Rating</div>
         <div className="dn-badge-val">★★★★★ 4.9 / 5.0</div>
       </div>
-    </div>
+    </div> */}
   </div>
   <div className="dn-scroll-hint">Scroll to explore</div>
 </section>
@@ -654,23 +684,6 @@ export default function DentallApp() {
         </div>
       </section>
 
-      {/* ── Video ── */}
-         <section className="dn-video-section" id="video">
-        <div className="dn-video-label">See it in action</div>
-        <h2 className="dn-video-title">Two minutes.<br/><em>A lifetime</em> of better oral health.</h2>
-        <div className="dn-video-placeholder" onClick={()=>setShowVideo(true)}>
-          <img className="dn-video-thumb" src={videoThumbnail} alt="Dentall product video thumbnail" loading="lazy"/>
-          <div className="dn-video-thumb-overlay"/>
-          <div className="dn-video-grid"/><div className="dn-video-glow"/><div className="dn-video-scanline"/>
-          <div className="dn-video-corner dn-video-corner-tl"/><div className="dn-video-corner dn-video-corner-tr"/>
-          <div className="dn-video-corner dn-video-corner-bl"/><div className="dn-video-corner dn-video-corner-br"/>
-          <div className="dn-video-live">Product Film</div>
-          <div className="dn-video-duration">1:52</div>
-          <button className="dn-video-play-btn" aria-label="Play video"><div className="dn-play-icon"/></button>
-          <div className="dn-video-caption">DENTALL Pro — Product Story</div>
-        </div>
-      </section>
-
       {/* ── Scroll Stage ── */}
       <section id="scroll-stage" ref={scrollStageRef} className="dn-scroll-stage">
         <div className="dn-sticky-canvas">
@@ -696,7 +709,7 @@ export default function DentallApp() {
               {[
                 { num:'99.3%', label:'Plaque removed',    fill:'99' },
                 { num:'10K+',  label:'Micro-filaments/cm²', fill:'85' },
-                { num:'4 mo',  label:'Replacement cycle', fill:'70' },
+                { num:'3 mo',  label:'Replacement cycle', fill:'70' },
               ].map(s=>(
                 <div key={s.label} className="dn-scroll-stat-item">
                   <div className="dn-scroll-stat-num">{s.num}</div>
@@ -723,7 +736,7 @@ export default function DentallApp() {
               </>}
             </div>
             <div id="dn-brush-wrapper" style={{transform:`scale(${brushTransform.scale}) translateY(${brushTransform.ty}px) rotate(${brushTransform.rot}deg)`}}>
-              <img id="dn-brush-img" src="image/green.png" alt="DENTALL brush detail" onError={e=>{e.target.style.opacity=0;}}/>
+              <img id="dn-brush-img" src="image/brush.png" alt="DENTALL brush detail" onError={e=>{e.target.style.opacity=0;}}/>
               <div className={`dn-img-highlight ${activeRings[0]?'active':''}`} style={{width:70,height:70,top:'2%',left:'50%',transform:'translate(-50%,0)'}}/>
               <div className={`dn-img-highlight ${activeRings[1]?'active':''}`} style={{width:80,height:80,top:'45%',left:'50%',transform:'translate(-50%,-50%)'}}/>
               <div className={`dn-img-highlight ${activeRings[2]?'active':''}`} style={{width:70,height:70,bottom:'8%',left:'50%',transform:'translate(-50%,0)'}}/>
@@ -763,6 +776,23 @@ export default function DentallApp() {
               <div className="dn-fp-desc">BPA-free, ISO 9001 certified. Each brush is quality tested for consistent bristle density.</div>
             </div>
           </div>
+        </div>
+      </section>
+
+       {/* ── Video ── */}
+         <section className="dn-video-section" id="video">
+        <div className="dn-video-label">See it in action</div>
+        <h2 className="dn-video-title">Two minutes.<br/><em>A lifetime</em> of better oral health.</h2>
+        <div className="dn-video-placeholder" onClick={()=>setShowVideo(true)}>
+          <img className="dn-video-thumbnail" src={videoThumbnail} alt="Dentall product video thumbnail" loading="lazy"/>
+          <div className="dn-video-thumb-overlay"/>
+          <div className="dn-video-grid"/><div className="dn-video-glow"/><div className="dn-video-scanline"/>
+          <div className="dn-video-corner dn-video-corner-tl"/><div className="dn-video-corner dn-video-corner-tr"/>
+          <div className="dn-video-corner dn-video-corner-bl"/><div className="dn-video-corner dn-video-corner-br"/>
+          <div className="dn-video-live">Product Film</div>
+          <div className="dn-video-duration">1:52</div>
+          <button className="dn-video-play-btn" aria-label="Play video"><div className="dn-play-icon"/></button>
+          <div className="dn-video-caption">DENTALL Pro — Product Story</div>
         </div>
       </section>
 
@@ -860,7 +890,7 @@ export default function DentallApp() {
       <section className="dn-social" id="social">
         <div className="dn-social-header">
           <div className="dn-section-label">Customer voices</div>
-          <div className="dn-section-title">Trusted by <em>12,000+</em> households</div>
+          <div className="dn-section-title">Trusted by <em>100+</em> households</div>
         </div>
         <div className="dn-reviews-track-wrapper">
           <div className="dn-reviews-scroll-track">
@@ -1041,7 +1071,10 @@ export default function DentallApp() {
 
       {/* ── Footer ── */}
       <footer className="dn-footer">
-        <div className="dn-footer-logo">DENTALL</div>
+        <div>
+        <div className="dn-logo">DENTALL<sup>®</sup></div>
+        <span className="dn-logo-tagline">a quality product from Brooks &amp; Meadows</span>
+        </div>
         <div className="dn-footer-copy">© 2025 Dentall. All rights reserved.</div>
         <div className="dn-footer-links">
           <a href="#">Privacy</a><a href="#">Terms</a><a href="#">Contact</a>

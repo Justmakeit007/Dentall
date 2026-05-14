@@ -3,53 +3,119 @@ import { useEffect, useRef, useState } from "react";
 /* ─── BRUSH COLOR SHOWCASE ─────────────────────────────────── */
 const BRUSH_COLORS = [
   {
-    name: 'Crimson Red',
-    filter: 'none',
+    name: 'Red',
+    image: 'image/brush.png',
     dot: '#E8294A',
-    label: 'Signature Red',
+    label: 'Red',
   },
   {
-    name: 'Ocean Blue',
-    filter: 'hue-rotate(200deg) saturate(1.4)',
-    dot: '#1A72E8',
-    label: 'Ocean Blue',
-  },
-  {
-    name: 'Forest Green',
-    filter: 'hue-rotate(100deg) saturate(1.3) brightness(0.95)',
-    dot: '#22A85A',
-    label: 'Forest Green',
-  },
-  {
-    name: 'Midnight Black',
-    filter: 'grayscale(0.9) brightness(0.35)',
-    dot: '#2C2C2C',
-    label: 'Midnight Black',
-  },
+  name: 'Mint Green',
+  image: 'image/green.png',
+  dot: '#A8D6AE',
+  label: 'Mint Green',
+},
+{
+  name: 'Lavender Violet',
+  image: 'image/violet.png',
+  dot: '#C5B1E3',
+  label: 'Lavender Violet',
+},
+{
+  name: 'Sky Blue',
+  image: 'image/blue.png',
+  dot: '#A9D3EA',
+  label: 'Sky Blue',
+},
 ];
 
 export default function BrushColorShowcase() {
   const [active, setActive] = useState(0);
-  const timerRef = useRef(null);
+  const [previous, setPrevious] = useState(null);
+  const [isSwapping, setIsSwapping] = useState(false);
+  const activeRef = useRef(0);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
-    startAutoSlide();
+    if (!isSwapping) return undefined;
+    const timer = setTimeout(() => {
+      setPrevious(null);
+      setIsSwapping(false);
+    }, 920);
 
-    return () => clearInterval(timerRef.current);
-  }, []);
+    return () => clearTimeout(timer);
+  }, [isSwapping]);
 
-  const startAutoSlide = () => {
-    timerRef.current = setInterval(() => {
-      setActive((prev) => (prev + 1) % BRUSH_COLORS.length);
-    }, 2800);
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+
+  const swapToColor = (idx) => {
+    if (idx === activeRef.current) return;
+    setPrevious(activeRef.current);
+    setActive(idx);
+    activeRef.current = idx;
+    setIsSwapping(true);
   };
 
-  const handleClick = (idx) => {
-    clearInterval(timerRef.current);
+  const startAutoSwitch = () => {
+    clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      swapToColor((activeRef.current + 1) % BRUSH_COLORS.length);
+    }, 2600);
+  };
 
-    setActive(idx);
+  useEffect(() => {
+    startAutoSwitch();
 
-    startAutoSlide();
+    return () => clearInterval(intervalRef.current);
+  }, []);
+
+  const handleColorSelect = (idx) => {
+    swapToColor(idx);
+    startAutoSwitch();
+  };
+
+  const renderBrush = (idx, state) => {
+    const color = BRUSH_COLORS[idx];
+
+    return (
+      <div
+        key={`${state}-${idx}`}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transformStyle: 'preserve-3d',
+          animation:
+            state === 'incoming'
+              ? 'brushSwapIn 0.92s cubic-bezier(.16,1,.3,1) both'
+              : state === 'outgoing'
+                ? 'brushSwapOut 0.78s cubic-bezier(.7,0,.2,1) both'
+                : 'none',
+          zIndex: state === 'outgoing' ? 2 : 3,
+          pointerEvents: 'none',
+        }}
+      >
+        <img
+          src={color.image}
+          alt={color.name}
+          style={{
+            width: 220,
+            maxWidth: '70vw',
+            filter: `
+              drop-shadow(0 26px 54px ${color.dot}35)
+              drop-shadow(0 10px 24px rgba(17,24,39,.18))
+            `,
+            backfaceVisibility: 'hidden',
+            transform: 'translateZ(40px)',
+            animation: state === 'outgoing' ? 'none' : 'brushFloatSoft 4.5s ease-in-out infinite',
+            transition: 'filter 0.35s ease',
+          }}
+        />
+      </div>
+    );
   };
 
   return (
@@ -62,6 +128,39 @@ export default function BrushColorShowcase() {
         gap: '1.2rem',
       }}
     >
+      <style>{`
+        @keyframes brushSwapIn {
+          0% {
+            opacity: 0;
+            transform: translateX(170px) rotateY(-68deg) rotateZ(10deg) scale(.9);
+          }
+          58% {
+            opacity: 1;
+            transform: translateX(-16px) rotateY(12deg) rotateZ(-2deg) scale(1.02);
+          }
+          100% {
+            opacity: 1;
+            transform: translateX(0) rotateY(0deg) rotateZ(0deg) scale(1);
+          }
+        }
+
+        @keyframes brushSwapOut {
+          0% {
+            opacity: 1;
+            transform: translateX(0) rotateY(0deg) rotateZ(0deg) scale(1);
+          }
+          100% {
+            opacity: 0;
+            transform: translateX(-170px) rotateY(72deg) rotateZ(-10deg) scale(.86);
+          }
+        }
+
+        @keyframes brushFloatSoft {
+          0%, 100% { transform: translateY(0) translateZ(40px); }
+          50% { transform: translateY(-13px) translateZ(40px); }
+        }
+      `}</style>
+
       {/* Showcase */}
       <div
         style={{
@@ -82,9 +181,9 @@ export default function BrushColorShowcase() {
             width: 240,
             height: 240,
             borderRadius: '50%',
-            background: `${BRUSH_COLORS[active].dot}25`,
+            background: `radial-gradient(circle, ${BRUSH_COLORS[active].dot}26 0%, ${BRUSH_COLORS[active].dot}10 42%, transparent 72%)`,
             filter: 'blur(70px)',
-            transition: 'all 0.7s ease',
+            transition: 'background 0.45s ease, transform 0.45s ease, opacity 0.45s ease',
             animation: 'pulseGlow 3s ease-in-out infinite',
           }}
         />
@@ -127,47 +226,8 @@ export default function BrushColorShowcase() {
           {BRUSH_COLORS[active].label}
         </div>
 
-        {/* Brush images */}
-        {BRUSH_COLORS.map((c, i) => (
-          <img
-            key={i}
-            src="image/green.png"
-            alt={c.name}
-            style={{
-              position: 'absolute',
-              width: 220,
-
-              filter: `
-                ${c.filter}
-                drop-shadow(0 24px 60px ${c.dot}35)
-                drop-shadow(0 8px 20px rgba(0,0,0,.15))
-              `,
-
-              opacity: i === active ? 1 : 0,
-
-              transform:
-                i === active
-                  ? 'rotateY(0deg) scale(1)'
-                  : 'rotateY(-90deg) scale(0.82)',
-
-              transformOrigin: 'center center',
-
-              transition: `
-                opacity 0.65s ease,
-                transform 0.8s cubic-bezier(.4,0,.2,1)
-              `,
-
-              backfaceVisibility: 'hidden',
-
-              animation:
-                i === active
-                  ? 'float-hero 4s ease-in-out infinite'
-                  : 'none',
-
-              zIndex: i === active ? 2 : 1,
-            }}
-          />
-        ))}
+        {previous !== null && renderBrush(previous, 'outgoing')}
+        {renderBrush(active, isSwapping ? 'incoming' : 'idle')}
       </div>
 
       {/* Color selectors */}
@@ -183,7 +243,7 @@ export default function BrushColorShowcase() {
         {BRUSH_COLORS.map((c, i) => (
           <button
             key={i}
-            onClick={() => handleClick(i)}
+            onClick={() => handleColorSelect(i)}
             title={c.name}
             style={{
               width: i === active ? 30 : 20,
@@ -214,6 +274,7 @@ export default function BrushColorShowcase() {
               outline: 'none',
             }}
             aria-label={c.name}
+            aria-pressed={i === active}
           />
         ))}
       </div>

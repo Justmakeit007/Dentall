@@ -122,12 +122,12 @@
   min-height: 320px; 
   object-fit: contain;
   border-radius: 20px 80px 80px 20px;
-  box-shadow: 8px 12px 40px rgba(200, 16, 46, .10), 0 2px 8px rgba(0, 0, 0, .07);
+  box-shadow: 8px 12px 40px color-mix(in srgb, var(--primary) 14%, transparent), 0 2px 8px rgba(0, 0, 0, .07);
 }
 
 .dn-cap-img-main:hover { 
   transform: scale(1.025) translateX(-4px); 
-  box-shadow: 12px 20px 56px rgba(200, 16, 46, .16), 0 4px 12px rgba(0, 0, 0, .1); 
+  box-shadow: 12px 20px 56px color-mix(in srgb, var(--primary) 20%, transparent), 0 4px 12px rgba(0, 0, 0, .1); 
 }
 
 /* Open cap: top right — big radius on top + outer corners */

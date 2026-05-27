@@ -830,9 +830,9 @@ export default function DentallApp() {
 
         {/* Right: images */}
         <div className="dn-cap-images">
-          <img src="src\assets\brush cap.png" alt="Cap on brush"       className="dn-cap-img dn-cap-img-main"        />
-          <img src="src\assets\cap open.png" alt="Hygiene cap open"   className="dn-cap-img dn-cap-img-side dn-cap-img-side-top"    />
-          <img src="src\assets\cap close.png" alt="Hygiene cap closed" className="dn-cap-img dn-cap-img-side dn-cap-img-side-bottom" />
+          <img src="image/brush cap.png" alt="Cap on brush"       className="dn-cap-img dn-cap-img-main"        />
+          <img src="image/cap open.png" alt="Hygiene cap open"   className="dn-cap-img dn-cap-img-side dn-cap-img-side-top"    />
+          <img src="image/cap close.png" alt="Hygiene cap closed" className="dn-cap-img dn-cap-img-side dn-cap-img-side-bottom" />
         </div>
       </section>
 

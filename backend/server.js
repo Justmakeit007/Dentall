@@ -120,7 +120,8 @@ function isValidPincode(pin) {
 }
 
 function isValidPhone(phone) {
-  return /^\+?[\d\s\-()]{7,20}$/.test(phone);
+  // 10-digit Indian mobile, must start with 6–9
+  return /^[6-9]\d{9}$/.test(String(phone).replace(/[\s\-()]/g, ''));
 }
 
 // Safe integer — prevents NaN and float abuse
@@ -358,25 +359,34 @@ function mockTrackingData(awbNumber, orderId) {
   };
 }
 
-// ── REAL Shiprocket order creation ──
+// ── REAL Shiprocket order creation (3-step: create → courier → AWB) ──
 async function createShiprocketOrder({ orderId, customer, cartItems, totalAmount }) {
-  const token = await getShiprocketToken();
+  const token   = await getShiprocketToken();
+  const headers = { Authorization: `Bearer ${token}` };
+
+  // 0.5 kg per brush unit, minimum 0.5 kg
+  const totalQty    = cartItems.reduce((s, i) => s + i.qty, 0);
+  const totalWeight = Math.max(0.5, cartItems.reduce((s, i) => s + i.qty * 0.5, 0));
+
   const items = cartItems.map(i => ({
     name:          i.name,
     sku:           i.id,
     units:         i.qty,
     selling_price: i.price,
-    discount: 0, tax: 0, hsn: 0,
+    discount: 0, tax: 0, hsn: 96190,  // HSN code for toothbrushes
   }));
 
-  const { data } = await axios.post(
+  // ── Step 1: Create order in Shiprocket ──
+  const { data: orderResp } = await axios.post(
     'https://apiv2.shiprocket.in/v1/external/orders/create/adhoc',
     {
       order_id:              `DNT-${orderId}`,
       order_date:            new Date().toISOString().slice(0, 19).replace('T', ' '),
       pickup_location:       'Primary',
       billing_customer_name: customer.name,
+      billing_last_name:     '',
       billing_address:       customer.address,
+      billing_address_2:     '',
       billing_city:          customer.city,
       billing_pincode:       customer.pincode,
       billing_state:         customer.state,
@@ -387,13 +397,60 @@ async function createShiprocketOrder({ orderId, customer, cartItems, totalAmount
       order_items:           items,
       payment_method:        'Prepaid',
       sub_total:             totalAmount,
-      length: 20, breadth: 10, height: 5, weight: 0.5,
+      length:  20,
+      breadth: 15,
+      height:  Math.min(30, 5 * totalQty),
+      weight:  totalWeight,
     },
-    { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }
+    { headers, timeout: 15000 }
   );
 
-  if (!data.awb_code) throw new Error('Shiprocket: no AWB returned — ' + JSON.stringify(data));
-  return { awb_code: data.awb_code, shipment_id: data.shipment_id };
+  const shipmentId = orderResp.shipment_id;
+  if (!shipmentId) {
+    throw new Error('Shiprocket order creation failed: ' + JSON.stringify(orderResp));
+  }
+  console.log(`   Shiprocket shipment created: id=${shipmentId}`);
+
+  // ── Step 2: Find cheapest available courier ──
+  const { data: serviceResp } = await axios.get(
+    'https://apiv2.shiprocket.in/v1/external/courier/serviceability/',
+    {
+      headers,
+      params: {
+        pickup_postcode:   process.env.YOUR_PINCODE,
+        delivery_postcode: customer.pincode,
+        weight:            totalWeight,
+        cod:               0,
+      },
+      timeout: 10000,
+    }
+  );
+
+  const couriers  = serviceResp.data?.available_courier_companies || [];
+  couriers.sort((a, b) => (a.rate || 0) - (b.rate || 0));
+  const courierId = couriers[0]?.courier_company_id;
+  if (!courierId) {
+    throw new Error(`No courier available from ${process.env.YOUR_PINCODE} to ${customer.pincode}`);
+  }
+  console.log(`   Courier: ${couriers[0].courier_name} (id=${courierId})`);
+
+  // ── Step 3: Assign courier and generate AWB ──
+  const { data: awbResp } = await axios.post(
+    'https://apiv2.shiprocket.in/v1/external/courier/assign/awb',
+    { shipment_id: String(shipmentId), courier_id: String(courierId) },
+    { headers, timeout: 15000 }
+  );
+
+  const awbCode = awbResp.response?.data?.awb_code || awbResp.awb_code;
+  if (!awbCode) {
+    throw new Error('Shiprocket AWB assignment failed: ' + JSON.stringify(awbResp));
+  }
+
+  return {
+    awb_code:            awbCode,
+    shipment_id:         String(shipmentId),
+    shiprocket_order_id: String(orderResp.order_id),
+  };
 }
 
 // ============================================================
@@ -991,7 +1048,7 @@ app.post('/api/verify-payment', paymentLimiter, async (req, res) => {
 
     await db.execute(
       `UPDATE orders SET awb_number = ?, shiprocket_order_id = ? WHERE id = ?`,
-      [awb.awb_code, awb.shipment_id, orderId]
+      [awb.awb_code, awb.shiprocket_order_id || awb.shipment_id, orderId]
     );
     console.log(`✅ Shipment created, AWB: ${awb.awb_code}`);
   } catch (shipErr) {

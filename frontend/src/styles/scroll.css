@@ -306,12 +306,12 @@
   width: 50px; 
 }
 
-.dn-mobile-feature-card { 
-  display: none; 
-  position: absolute; 
-  top: 6vh; 
-  left: 50%; 
-  transform: translateX(-50%); 
+.dn-mobile-feature-card {
+  display: none;
+  position: absolute;
+  top: 4.5rem;
+  left: 50%;
+  transform: translateX(-50%);
   background: rgba(255, 255, 255, 0.97); 
   border: 1px solid var(--border-mid); 
   border-left: 3px solid var(--primary); 
@@ -451,7 +451,7 @@
   }
 
   .dn-mobile-feature-card {
-    top: 4vh;
+    top: 4.2rem;
     width: calc(100% - 2rem);
   }
 }

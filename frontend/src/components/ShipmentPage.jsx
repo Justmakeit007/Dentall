@@ -51,20 +51,9 @@ export default function ShipmentPage({ onClose }) {
   const isDelivered = currentStep === 4;
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 9000,
-      background: 'var(--bg-main)',
-      overflowY: 'auto',
-      fontFamily: "'DM Sans', sans-serif",
-    }}>
+    <div className="ssp-page">
       {/* Header */}
-      <div style={{
-        background: 'linear-gradient(135deg, var(--primary), var(--primary-dark), var(--secondary))',
-        padding: '1.5rem 2rem',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        position: 'sticky', top: 0, zIndex: 10,
-        borderBottom: '2px solid rgba(255,255,255,0.15)',
-      }}>
+      <div className="ssp-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {onClose && (
             <button onClick={onClose} style={{
@@ -74,13 +63,13 @@ export default function ShipmentPage({ onClose }) {
           )}
           <div>
             <div style={{ fontSize: '.65rem', letterSpacing: '.25em', textTransform: 'uppercase', color: 'rgba(255,255,255,.65)', marginBottom: 2 }}>Dentall</div>
-            <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', fontWeight: 900, color: '#fff' }}>Shipment Details</div>
+            <div className="ssp-header-title" style={{ fontFamily: "'Fraunces', serif", fontSize: '1.3rem', fontWeight: 900, color: '#fff' }}>Shipment Details</div>
           </div>
         </div>
         <div style={{ fontSize: '1.5rem' }}>📦</div>
       </div>
 
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <div className="ssp-body">
 
         {/* Search bar */}
         <div style={{
@@ -91,7 +80,7 @@ export default function ShipmentPage({ onClose }) {
           <div style={{ fontSize: '.65rem', letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--text-light)', fontWeight: 700, marginBottom: '1rem' }}>
             Track your shipment
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+          <div className="ssp-search-grid">
             <div>
               <label style={{ display: 'block', fontSize: '.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700, marginBottom: '.4rem' }}>
                 Order ID
@@ -184,7 +173,7 @@ export default function ShipmentPage({ onClose }) {
               </div>
 
               {/* Progress steps */}
-              <div style={{ display: 'flex', alignItems: 'center' }}>
+              <div className="ssp-steps">
                 {STATUS_STEPS.map((step, i, arr) => {
                   const done   = i < currentStep;
                   const active = i === currentStep;

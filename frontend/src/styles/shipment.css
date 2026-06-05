@@ -1,0 +1,92 @@
+/* ══════════════════════════════════════════════════════════════
+   SHIPMENT PAGE — responsive layout overrides
+   ══════════════════════════════════════════════════════════════ */
+
+.ssp-page {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: var(--bg-main);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.ssp-header {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark), var(--secondary));
+  padding: 1.5rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.ssp-body {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+/* The two-column search grid */
+.ssp-search-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Progress tracker — allow horizontal scroll on very narrow screens */
+.ssp-steps {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.25rem;
+  scrollbar-width: none;
+}
+.ssp-steps::-webkit-scrollbar { display: none; }
+
+/* ── Portrait mobile ── */
+@media (max-width: 600px) {
+  .ssp-header {
+    padding: 1rem 1.1rem;
+  }
+
+  .ssp-header-title {
+    font-size: 1.1rem !important;
+  }
+
+  .ssp-body {
+    padding: 1.2rem 1rem;
+  }
+
+  .ssp-search-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Very small phones ── */
+@media (max-width: 400px) {
+  .ssp-header {
+    padding: 0.75rem 0.9rem;
+  }
+
+  .ssp-body {
+    padding: 1rem 0.75rem;
+  }
+}
+
+/* ── Landscape mobile (short viewport) ── */
+@media (orientation: landscape) and (max-height: 520px) {
+  .ssp-header {
+    padding: 0.6rem 1.2rem;
+    position: relative; /* don't stick in landscape — wastes vertical space */
+  }
+
+  .ssp-body {
+    padding: 1rem 1.2rem;
+  }
+}

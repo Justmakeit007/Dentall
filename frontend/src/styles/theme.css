@@ -100,8 +100,9 @@
 @keyframes pulseGlow    { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(1.08);opacity:1} }
 
 /* ── Base Styles ── */
-html { 
-  scroll-behavior: smooth; 
+html {
+  scroll-behavior: smooth;
+  overflow-anchor: none;
 }
 
 body {
@@ -110,6 +111,8 @@ body {
   font-family: 'DM Sans', sans-serif;
   overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+  overflow-anchor: none;
 }
 
 /* ── Custom Cursor ── */

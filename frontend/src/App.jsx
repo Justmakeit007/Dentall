@@ -212,6 +212,12 @@ export default function DentallApp() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  /* ── Lock body scroll while mobile drawer is open ── */
+  useEffect(() => {
+    document.body.style.overflow = drawerOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [drawerOpen]);
+
   /* ── Intersection observer for feat cards ── */
   useEffect(() => {
     const obs = new IntersectionObserver(entries => {
@@ -573,10 +579,11 @@ export default function DentallApp() {
 
 
       <div className={`dn-drawer ${drawerOpen?'open':''}`}>
+        <button className="dn-drawer-close" onClick={()=>setDrawerOpen(false)} aria-label="Close menu">✕</button>
         <a href="#features-grid" onClick={e=>{e.preventDefault();scrollTo('features-grid')}}>Features</a>
         <a href="#social"        onClick={e=>{e.preventDefault();scrollTo('social')}}>Reviews</a>
         {/* <a href="#tracking"      onClick={e=>{e.preventDefault();scrollTo('tracking')}}>Track Order</a> */}
-        <a href="#shipment"      onClick={e=>{e.preventDefault();setShowShipment(true);}}>Shipment</a>
+        <a href="#shipment"      onClick={e=>{e.preventDefault();setShowShipment(true);setDrawerOpen(false);}}>Shipment</a>
         <a href="#order"         onClick={e=>{e.preventDefault();scrollTo('order')}}>Order</a>
         <button className="dn-cart-btn" style={{fontSize:'1rem',padding:'.8rem 2rem'}} onClick={()=>{setDrawerOpen(false);setCartOpen(true);}}>
           🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
@@ -597,7 +604,7 @@ export default function DentallApp() {
     </div>
   </div>
   <div className="dn-hero-image-wrap">
-    <BrushColorShowcase />
+    <BrushColorShowcase paused={drawerOpen} />
     {/* <div className="dn-hero-badge">
       <div style={{fontSize:'1.3rem'}}>🦷</div>
       <div>
@@ -708,9 +715,9 @@ export default function DentallApp() {
             </div>
             <div id="dn-brush-wrapper" style={{transform:`scale(${brushTransform.scale}) translateY(${brushTransform.ty}px) rotate(${brushTransform.rot}deg)`}}>
               <img id="dn-brush-img" src="image/brush.png" alt="DENTALL brush detail" onError={e=>{e.target.style.opacity=0;}}/>
-              <div className={`dn-img-highlight ${activeRings[0]?'active':''}`} style={{width:70,height:70,top:'2%',left:'50%',transform:'translate(-50%,0)'}}/>
-              <div className={`dn-img-highlight ${activeRings[1]?'active':''}`} style={{width:80,height:80,top:'45%',left:'50%',transform:'translate(-50%,-50%)'}}/>
-              <div className={`dn-img-highlight ${activeRings[2]?'active':''}`} style={{width:70,height:70,bottom:'8%',left:'50%',transform:'translate(-50%,0)'}}/>
+              <div className={`dn-img-highlight ${activeRings[0]?'active':''}`} style={{width:'clamp(36px,6vw,70px)',height:'clamp(36px,6vw,70px)',top:'2%',left:'50%',transform:'translate(-50%,0)'}}/>
+              <div className={`dn-img-highlight ${activeRings[1]?'active':''}`} style={{width:'clamp(42px,7vw,80px)',height:'clamp(42px,7vw,80px)',top:'45%',left:'50%',transform:'translate(-50%,-50%)'}}/>
+              <div className={`dn-img-highlight ${activeRings[2]?'active':''}`} style={{width:'clamp(36px,6vw,70px)',height:'clamp(36px,6vw,70px)',bottom:'8%',left:'50%',transform:'translate(-50%,0)'}}/>
             </div>
             <div id="dn-phase-label" className={phaseIdx >= 0 ? 'visible' : ''}>
               <div className="dn-pl-step">{phaseIdx>=0?PHASES[phaseIdx].step:''}</div>

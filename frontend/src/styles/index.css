@@ -41,3 +41,6 @@
 
 /* Footer & Forms */
 @import './footer.css';
+
+/* Shipment Page */
+@import './shipment.css';

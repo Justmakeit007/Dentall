@@ -25,29 +25,15 @@ jobs:
         run: npm run build
         working-directory: frontend
 
-      - name: Deploy to Hostinger via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Deploy to Hostinger via SFTP
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
         with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASS }}
-          local-dir: ./
-          server-dir: /Dentall/
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            backend/.env
-
-      - name: Install backend deps & restart app via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
+          server: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
+          password: ${{ secrets.SSH_PASS }}
           port: 65002
-          script: |
-            cd ~/Dentall/backend
-            npm install --omit=dev
-            mkdir -p tmp && touch tmp/restart.txt
-            echo "✅ Deployed successfully"
+          local_path: './'
+          remote_path: '/home/${{ secrets.SSH_USER }}/Dentall'
+          sftp_only: true
+          delete_remote_files: false
+          args: '--exclude=.git* --exclude=node_modules --exclude=backend/.env'

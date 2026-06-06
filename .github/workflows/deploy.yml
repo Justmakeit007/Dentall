@@ -33,7 +33,6 @@ jobs:
           password: ${{ secrets.SSH_PASS }}
           port: 65002
           local_path: './'
-          remote_path: '/home/${{ secrets.SSH_USER }}/Dentall'
+          remote_path: '/home/u598097533/Dentall'
           sftp_only: true
           delete_remote_files: false
-          args: '--exclude=.git* --exclude=node_modules --exclude=backend/.env'

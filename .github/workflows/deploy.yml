@@ -25,14 +25,26 @@ jobs:
         run: npm run build
         working-directory: frontend
 
-      - name: Deploy to Hostinger via SFTP
-        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+      - name: Copy files to Hostinger via SCP
+        uses: appleboy/scp-action@v0.1.7
         with:
-          server: ${{ secrets.SSH_HOST }}
+          host: 82.25.120.239
+          port: 65002
           username: ${{ secrets.SSH_USER }}
           password: ${{ secrets.SSH_PASS }}
+          source: "./"
+          target: "/home/u598097533/Dentall"
+          rm: false
+
+      - name: Install deps and restart via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 82.25.120.239
           port: 65002
-          local_path: './'
-          remote_path: '/home/u598097533/Dentall'
-          sftp_only: true
-          delete_remote_files: false
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASS }}
+          script: |
+            cd /home/u598097533/Dentall/backend
+            npm install --omit=dev
+            mkdir -p tmp && touch tmp/restart.txt
+            echo "Deploy done"

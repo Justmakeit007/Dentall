@@ -91,8 +91,8 @@ console.log(`   Origin:   ${process.env.ALLOWED_ORIGIN}\n`);
 //  Frontend prices are NEVER trusted for charge amounts.
 // ============================================================
 const PRODUCT_CATALOGUE = {
-  'family-pack':  { name: 'Family Pack (12 brushes)', price: 5990,  maxQty: 10 },
-  'single-brush': { name: 'Single Brush',              price: 599,   maxQty: 20 },
+  'family-pack':  { name: 'Family Pack (12 brushes)', price: 599,  maxQty: 10 },
+  'single-brush': { name: 'Single Brush',              price: 49,   maxQty: 20 },
 };
 
 // ============================================================

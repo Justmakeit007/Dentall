@@ -1,50 +1,37 @@
-name: Deploy to Hostinger
+name: Build and Deploy
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'dist/**'
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install frontend dependencies
-        run: npm install
-        working-directory: frontend
-
       - name: Build frontend
-        run: npm run build
-        working-directory: frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
 
-      - name: Copy files to Hostinger via SCP
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: 82.25.120.239
-          port: 65002
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASS }}
-          source: "./"
-          target: "/home/u598097533/Dentall"
-          rm: false
-
-      - name: Install deps and restart via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: 82.25.120.239
-          port: 65002
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASS }}
-          script: |
-            cd /home/u598097533/Dentall/backend
-            npm install --omit=dev
-            mkdir -p tmp && touch tmp/restart.txt
-            echo "Deploy done"
+      - name: Commit and push dist
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add dist/ -f
+          git diff --staged --quiet && echo "No changes" || git commit -m "build: update dist [skip ci]"
+          git push origin main

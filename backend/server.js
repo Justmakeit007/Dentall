@@ -382,7 +382,7 @@ async function createShiprocketOrder({ orderId, customer, cartItems, totalAmount
     {
       order_id:              `DNT-${orderId}`,
       order_date:            new Date().toISOString().slice(0, 19).replace('T', ' '),
-      pickup_location:       'Primary',
+      pickup_location:       'Home',
       billing_customer_name: customer.name,
       billing_last_name:     '',
       billing_address:       customer.address,

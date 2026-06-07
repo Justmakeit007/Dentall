@@ -774,16 +774,29 @@ export default function DentallApp() {
          <section className="dn-video-section" id="video">
         <div className="dn-video-label">See it in action</div>
         <h2 className="dn-video-title">Two minutes.<br/><em>A lifetime</em> of better oral health.</h2>
-        <div className="dn-video-placeholder" onClick={()=>setShowVideo(true)}>
-          <img className="dn-video-thumbnail" src={videoThumbnail} alt="Dentall product video thumbnail" loading="lazy"/>
-          <div className="dn-video-thumb-overlay"/>
-          <div className="dn-video-grid"/><div className="dn-video-glow"/><div className="dn-video-scanline"/>
-          <div className="dn-video-corner dn-video-corner-tl"/><div className="dn-video-corner dn-video-corner-tr"/>
-          <div className="dn-video-corner dn-video-corner-bl"/><div className="dn-video-corner dn-video-corner-br"/>
-          <div className="dn-video-live">Product Film</div>
-          <div className="dn-video-duration">1:52</div>
-          <button className="dn-video-play-btn" aria-label="Play video"><div className="dn-play-icon"/></button>
-          <div className="dn-video-caption">DENTALL Pro — Product Story</div>
+        <div className="dn-video-placeholder" onClick={!showVideo ? ()=>setShowVideo(true) : undefined}
+          style={{ cursor: showVideo ? 'default' : 'pointer' }}>
+          {showVideo ? (
+            <iframe
+              style={{ position:'absolute', inset:0, width:'100%', height:'100%', border:'none' }}
+              src="https://www.youtube.com/embed/y7_2sUZiBbc?autoplay=1&rel=0&modestbranding=1"
+              title="Dentall Product Video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          ) : (
+            <>
+              <img className="dn-video-thumbnail" src={videoThumbnail} alt="Dentall product video thumbnail" loading="lazy"/>
+              <div className="dn-video-thumb-overlay"/>
+              <div className="dn-video-grid"/><div className="dn-video-glow"/><div className="dn-video-scanline"/>
+              <div className="dn-video-corner dn-video-corner-tl"/><div className="dn-video-corner dn-video-corner-tr"/>
+              <div className="dn-video-corner dn-video-corner-bl"/><div className="dn-video-corner dn-video-corner-br"/>
+              <div className="dn-video-live">Product Film</div>
+              <div className="dn-video-duration">1:52</div>
+              <button className="dn-video-play-btn" aria-label="Play video"><div className="dn-play-icon"/></button>
+              <div className="dn-video-caption">DENTALL Pro — Product Story</div>
+            </>
+          )}
         </div>
       </section>
 
@@ -1355,19 +1368,6 @@ export default function DentallApp() {
       {/* ── Shipment Page ── */}
       {showShipment && <ShipmentPage onClose={() => setShowShipment(false)} />}
 
-      {/* ── Video Modal ── */}
-      {showVideo && (
-        <div className="dn-video-modal" onClick={()=>setShowVideo(false)}>
-          <div className="dn-video-backdrop"/>
-          <div className="dn-video-container" onClick={e=>e.stopPropagation()}>
-            <button className="dn-video-close" onClick={()=>setShowVideo(false)}>✕</button>
-            <iframe width="100%" height="100%"
-              src="https://www.youtube.com/embed/y7_2sUZiBbc?autoplay=1&mute=1"
-              title="Dentall Product Video" frameBorder="0"
-              allow="autoplay; encrypted-media" allowFullScreen/>
-          </div>
-        </div>
-      )}
     </>
   );
 }

@@ -431,7 +431,112 @@
     grid-template-columns: 1fr; 
   }
   
-  .dn-pay-body { 
-    padding: 1.2rem; 
+  .dn-pay-body {
+    padding: 1.2rem;
   }
+}
+
+/* ── Checkout Steps ── */
+.dn-checkout-steps {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.6rem;
+  padding: 1rem 0 .8rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.dn-checkout-step {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  flex: 1;
+  position: relative;
+}
+
+.dn-checkout-step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--border-mid);
+  color: var(--text-light);
+  font-size: .72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s, color 0.2s;
+}
+
+.dn-checkout-step.active .dn-checkout-step-num {
+  background: var(--primary);
+  color: #fff;
+}
+
+.dn-checkout-step.done .dn-checkout-step-num {
+  background: var(--accent);
+  color: #fff;
+}
+
+.dn-checkout-step-label {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  transition: color 0.2s;
+}
+
+.dn-checkout-step.active .dn-checkout-step-label {
+  color: var(--primary);
+}
+
+.dn-checkout-step.done .dn-checkout-step-label {
+  color: var(--accent);
+}
+
+.dn-checkout-step-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border-mid);
+  margin: 0 .4rem;
+}
+
+/* ── Check Shipping Button ── */
+.dn-check-shipping-btn {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 0 1.2rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .82rem;
+  font-weight: 700;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.dn-check-shipping-btn:hover { background: var(--primary-dark); }
+.dn-check-shipping-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+/* ── Back Button ── */
+.dn-back-btn {
+  background: transparent;
+  color: var(--text-mid);
+  border: 1.5px solid var(--border-mid);
+  padding: 0 1.2rem;
+  height: 48px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .82rem;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.dn-back-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
 }

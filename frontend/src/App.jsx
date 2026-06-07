@@ -87,14 +87,7 @@ export default function DentallApp() {
   /* ── Modal pincode (in payment modal) ── */
   const [modalShipping, setModalShipping]       = useState(null);
   const [modalShipLoading, setModalShipLoading] = useState(false);
-
-  /* Auto-fetch shipping when modal opens with a pre-filled pincode */
-  useEffect(() => {
-    if (showPayment && form.pincode.length === 6) {
-      fetchModalShipping(form.pincode);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showPayment]);
+  const [checkoutStep, setCheckoutStep]         = useState(1);
 
   const packPrice = selectedPack === 'family' ? FAMILY_PACK_PRICE : SINGLE_PRICE;
   const cartSubtotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
@@ -461,6 +454,7 @@ export default function DentallApp() {
     setPaySuccess(false);
     setPayProcessing(false);
     setModalShipping(null);
+    setCheckoutStep(1);
   };
 
   /* ── Order form (direct, not cart) ── */
@@ -552,6 +546,8 @@ export default function DentallApp() {
       className="dn-cart-checkout-btn"
       onClick={() => {
         setCartOpen(false);
+        setCheckoutStep(1);
+        setModalShipping(null);
         setShowPayment(true);
       }}
     >
@@ -1103,156 +1099,221 @@ export default function DentallApp() {
             ) : (
               <div className="dn-pay-body">
 
-                {/* Order summary */}
-                <div className="dn-pay-order-summary">
-                  <div className="dn-pay-summary-label">Order Summary</div>
-                  {cartItems.map(item=>(
-                    <div key={item.id} className="dn-pay-summary-row">
-                      <span>{item.icon} {item.name} × {item.qty}</span>
-                      <span>₹{(item.price*item.qty).toLocaleString('en-IN')}</span>
+                {/* Step indicator */}
+                <div className="dn-checkout-steps">
+                  {['Details','Shipping','Payment'].map((label, i) => (
+                    <div key={label} className={`dn-checkout-step ${checkoutStep === i+1 ? 'active' : checkoutStep > i+1 ? 'done' : ''}`}>
+                      <div className="dn-checkout-step-num">{checkoutStep > i+1 ? '✓' : i+1}</div>
+                      <div className="dn-checkout-step-label">{label}</div>
+                      {i < 2 && <div className="dn-checkout-step-line" />}
                     </div>
                   ))}
-                  <div className="dn-pay-summary-row">
-                    <span>Shipping</span>
-                    <span style={{color: modalShipping?.charge===0?'var(--accent)':'var(--text-dark)',fontWeight:600}}>
-                      {modalShipping ? (modalShipping.charge===0 ? 'FREE' : `₹${modalShipping.charge}`) : '—'}
-                    </span>
-                  </div>
-                  <div className="dn-pay-summary-row total">
-                    <span>Total</span>
-                    <span>₹{cartTotal.toLocaleString('en-IN')}</span>
-                  </div>
                 </div>
 
-                {/* ── Delivery Details Form — shown here, not in cart ── */}
-<div className="dn-pay-section-label">Delivery Details</div>
+                {/* ── Step 1: Delivery Details ── */}
+                {checkoutStep === 1 && (
+                  <>
+                    <div className="dn-pay-section-label">Delivery Details</div>
 
-<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.8rem', marginBottom: '.8rem' }}>
-  {[['fname','First Name','Arjun'], ['lname','Last Name','Sharma']].map(([key, lbl, ph]) => (
-    <div className="dn-pay-field" key={key} style={{ marginBottom: 0 }}>
-      <label>{lbl}</label>
-      <input
-        value={form[key]}
-        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-        placeholder={ph}
-        style={{ borderColor: errors[key] ? 'var(--danger)' : '' }}
-      />
-    </div>
-  ))}
-</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.8rem', marginBottom: '.8rem' }}>
+                      {[['fname','First Name','Arjun'], ['lname','Last Name','Sharma']].map(([key, lbl, ph]) => (
+                        <div className="dn-pay-field" key={key} style={{ marginBottom: 0 }}>
+                          <label>{lbl}</label>
+                          <input
+                            value={form[key]}
+                            onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                            placeholder={ph}
+                            style={{ borderColor: errors[key] ? 'var(--danger)' : '' }}
+                          />
+                        </div>
+                      ))}
+                    </div>
 
-<div className="dn-pay-field">
-  <label>Email</label>
-  <input
-    type="email" value={form.email}
-    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-    placeholder="arjun@email.com"
-    style={{ borderColor: errors.email ? 'var(--danger)' : '' }}
-  />
-</div>
+                    <div className="dn-pay-field">
+                      <label>Email</label>
+                      <input type="email" value={form.email}
+                        onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                        placeholder="arjun@email.com"
+                        style={{ borderColor: errors.email ? 'var(--danger)' : '' }}
+                      />
+                    </div>
 
-<div className="dn-pay-field">
-  <label>Phone</label>
-  <input
-    type="tel" value={form.phone}
-    onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-    placeholder="+91 98765 43210"
-    style={{ borderColor: errors.phone ? 'var(--danger)' : '' }}
-  />
-</div>
+                    <div className="dn-pay-field">
+                      <label>Phone</label>
+                      <input type="tel" value={form.phone}
+                        onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                        placeholder="9876543210"
+                        style={{ borderColor: errors.phone ? 'var(--danger)' : '' }}
+                      />
+                    </div>
 
-<div className="dn-pay-field">
-  <label>Address</label>
-  <input
-    value={form.address}
-    onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-    placeholder="Flat no, Street"
-    style={{ borderColor: errors.address ? 'var(--danger)' : '' }}
-  />
-</div>
+                    <div className="dn-pay-field">
+                      <label>Address</label>
+                      <input value={form.address}
+                        onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                        placeholder="Flat no, Street, Landmark"
+                        style={{ borderColor: errors.address ? 'var(--danger)' : '' }}
+                      />
+                    </div>
 
-<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.8rem' }}>
-  <div className="dn-pay-field">
-    <label>City</label>
-    <input
-      value={form.city}
-      onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
-      placeholder="Chennai"
-      style={{ borderColor: errors.city ? 'var(--danger)' : '' }}
-    />
-  </div>
-  <div className="dn-pay-field">
-    <label>Pincode</label>
-    <input
-      value={form.pincode}
-      onChange={e => {
-        const v = e.target.value.replace(/\D/g,'').slice(0,6);
-        setForm(f => ({ ...f, pincode: v }));
-        if (v.length === 6) fetchModalShipping(v);
-      }}
-      onBlur={e => {
-        const v = e.target.value.replace(/\D/g,'').slice(0,6);
-        if (v.length === 6) {
-          setForm(f => ({ ...f, pincode: v }));
-          fetchModalShipping(v);
-        }
-      }}
-      placeholder="600001"
-      style={{ borderColor: errors.pincode ? 'var(--danger)' : '' }}
-    />
-  </div>
-</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.8rem' }}>
+                      <div className="dn-pay-field">
+                        <label>City</label>
+                        <input value={form.city}
+                          onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+                          placeholder="Chennai"
+                          style={{ borderColor: errors.city ? 'var(--danger)' : '' }}
+                        />
+                      </div>
+                      <div className="dn-pay-field">
+                        <label>State</label>
+                        <select value={form.state}
+                          onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
+                          style={{ borderColor: errors.state ? 'var(--danger)' : '' }}
+                        >
+                          <option value="">Select state</option>
+                          {INDIA_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    </div>
 
-{modalShipLoading && (
-  <div className="dn-shipping-loading" style={{marginBottom:'1rem'}}>Checking shipping rates…</div>
-)}
-{modalShipping && !modalShipLoading && (
-  <div className="dn-shipping-info-box" style={{marginBottom:'1rem'}}>
-    <div className="dn-shipping-info-row">
-      <span className="dn-shipping-info-courier">{modalShipping.courier}</span>
-      <span className="dn-shipping-info-price">
-        {modalShipping.charge===0 ? 'FREE' : `₹${modalShipping.charge}`}
-      </span>
-    </div>
-    {modalShipping.eta && (
-      <div className="dn-shipping-info-eta">Estimated delivery in {modalShipping.eta} business days</div>
-    )}
-  </div>
-)}
+                    <button className="dn-razorpay-btn" style={{marginTop:'.5rem'}} onClick={() => {
+                      const errs = {};
+                      ['fname','email','phone','address','city','state'].forEach(k => {
+                        if (!form[k].trim()) errs[k] = true;
+                      });
+                      setErrors(errs);
+                      if (Object.keys(errs).length === 0) setCheckoutStep(2);
+                    }}>
+                      Continue to Shipping →
+                    </button>
+                  </>
+                )}
 
-<div className="dn-pay-field">
-  <label>State</label>
-  <select
-    value={form.state}
-    onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
-    style={{ borderColor: errors.state ? 'var(--danger)' : '' }}
-  >
-    <option value="">Select state</option>
-    {INDIA_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-  </select>
-</div>
+                {/* ── Step 2: Shipping ── */}
+                {checkoutStep === 2 && (
+                  <>
+                    <div className="dn-pay-section-label">Shipping Details</div>
 
-                {/* Pay via Razorpay */}
-                <div className="dn-pay-section-label" style={{marginTop:'1rem'}}>Payment</div>
-                <p style={{fontSize:'.82rem',color:'var(--text-mid)',lineHeight:1.6,marginBottom:'1rem'}}>
-                  Clicking the button below will open the Razorpay secure payment window where you can pay by card, UPI, net banking, or wallet.
-                </p>
+                    <div className="dn-pay-field">
+                      <label>Pincode</label>
+                      <div style={{ display: 'flex', gap: '.6rem' }}>
+                        <input
+                          value={form.pincode}
+                          onChange={e => {
+                            const v = e.target.value.replace(/\D/g,'').slice(0,6);
+                            setForm(f => ({ ...f, pincode: v }));
+                            setModalShipping(null);
+                          }}
+                          placeholder="600001"
+                          style={{ borderColor: errors.pincode ? 'var(--danger)' : '', flex: 1 }}
+                          maxLength={6}
+                        />
+                        <button
+                          className="dn-check-shipping-btn"
+                          onClick={() => {
+                            if (form.pincode.length !== 6) {
+                              setErrors(e => ({ ...e, pincode: true }));
+                              return;
+                            }
+                            setErrors(e => ({ ...e, pincode: false }));
+                            fetchModalShipping(form.pincode);
+                          }}
+                          disabled={modalShipLoading}
+                        >
+                          {modalShipLoading ? 'Checking…' : 'Check'}
+                        </button>
+                      </div>
+                      {errors.pincode && <span style={{fontSize:'.75rem',color:'var(--danger)'}}>Enter a valid 6-digit pincode</span>}
+                    </div>
 
-                <button
-                  className="dn-razorpay-btn"
-                  onClick={handleRazorpayCheckout}
-                  disabled={payProcessing || cartItems.length===0}>
-                  {payProcessing
-                    ? '⏳ Opening Razorpay…'
-                    : <>Pay ₹{cartTotal.toLocaleString('en-IN')} <span className="dn-razorpay-logo">via Razorpay</span></>}
-                </button>
+                    {modalShipLoading && (
+                      <div className="dn-shipping-loading">Fetching shipping rates from Shiprocket…</div>
+                    )}
 
-                <div className="dn-pay-footer-badges">
-                  <span className="dn-pay-badge">🔒 256-bit SSL</span>
-                  <span className="dn-pay-badge">🛡️ PCI DSS Compliant</span>
-                  <span className="dn-pay-badge">↩ 30-Day Returns</span>
-                  <span className="dn-pay-badge">🚚 Shiprocket Delivery</span>
-                </div>
+                    {modalShipping && !modalShipLoading && (
+                      <div className="dn-shipping-info-box">
+                        <div className="dn-shipping-info-row">
+                          <span className="dn-shipping-info-courier">{modalShipping.courier}</span>
+                          <span className="dn-shipping-info-price">
+                            {modalShipping.charge === 0 ? 'FREE' : `₹${modalShipping.charge}`}
+                          </span>
+                        </div>
+                        {modalShipping.eta && (
+                          <div className="dn-shipping-info-eta">Estimated delivery in {modalShipping.eta} business days</div>
+                        )}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '.8rem', marginTop: '1rem' }}>
+                      <button className="dn-back-btn" onClick={() => setCheckoutStep(1)}>← Back</button>
+                      <button
+                        className="dn-razorpay-btn"
+                        style={{ flex: 1 }}
+                        disabled={!modalShipping}
+                        onClick={() => setCheckoutStep(3)}
+                      >
+                        Continue to Payment →
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {/* ── Step 3: Payment ── */}
+                {checkoutStep === 3 && (
+                  <>
+                    {/* Order summary */}
+                    <div className="dn-pay-order-summary">
+                      <div className="dn-pay-summary-label">Order Summary</div>
+                      {cartItems.map(item => (
+                        <div key={item.id} className="dn-pay-summary-row">
+                          <span>{item.icon} {item.name} × {item.qty}</span>
+                          <span>₹{(item.price * item.qty).toLocaleString('en-IN')}</span>
+                        </div>
+                      ))}
+                      <div className="dn-pay-summary-row">
+                        <span>Shipping ({modalShipping?.courier})</span>
+                        <span style={{ color: modalShipping?.charge === 0 ? 'var(--accent)' : 'var(--text-dark)', fontWeight: 600 }}>
+                          {modalShipping?.charge === 0 ? 'FREE' : `₹${modalShipping?.charge ?? 0}`}
+                        </span>
+                      </div>
+                      <div className="dn-pay-summary-row">
+                        <span style={{fontSize:'.78rem',color:'var(--text-mid)'}}>Delivering to</span>
+                        <span style={{fontSize:'.78rem',color:'var(--text-mid)'}}>{form.city}, {form.state} – {form.pincode}</span>
+                      </div>
+                      <div className="dn-pay-summary-row total">
+                        <span>Total</span>
+                        <span>₹{cartTotal.toLocaleString('en-IN')}</span>
+                      </div>
+                    </div>
+
+                    <p style={{fontSize:'.82rem',color:'var(--text-mid)',lineHeight:1.6,margin:'1rem 0'}}>
+                      Clicking the button below will open the Razorpay secure payment window where you can pay by card, UPI, net banking, or wallet.
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '.8rem' }}>
+                      <button className="dn-back-btn" onClick={() => setCheckoutStep(2)}>← Back</button>
+                      <button
+                        className="dn-razorpay-btn"
+                        style={{ flex: 1 }}
+                        onClick={handleRazorpayCheckout}
+                        disabled={payProcessing || cartItems.length === 0}
+                      >
+                        {payProcessing
+                          ? '⏳ Opening Razorpay…'
+                          : <>Pay ₹{cartTotal.toLocaleString('en-IN')} <span className="dn-razorpay-logo">via Razorpay</span></>}
+                      </button>
+                    </div>
+
+                    <div className="dn-pay-footer-badges">
+                      <span className="dn-pay-badge">🔒 256-bit SSL</span>
+                      <span className="dn-pay-badge">🛡️ PCI DSS Compliant</span>
+                      <span className="dn-pay-badge">↩ 30-Day Returns</span>
+                      <span className="dn-pay-badge">🚚 Shiprocket Delivery</span>
+                    </div>
+                  </>
+                )}
+
               </div>
             )}
           </div>

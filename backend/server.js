@@ -163,11 +163,11 @@ app.use(helmet({
   contentSecurityPolicy: IS_PROD ? undefined : false, // relax CSP in dev
 }));
 
-// CORS — strict origin whitelist
+// CORS — strict origin whitelist (supports comma-separated ALLOWED_ORIGIN)
 const allowedOrigins = IS_PROD
-  ? [process.env.ALLOWED_ORIGIN]
+  ? process.env.ALLOWED_ORIGIN.split(',').map(o => o.trim())
   : [
-      process.env.ALLOWED_ORIGIN,
+      ...process.env.ALLOWED_ORIGIN.split(',').map(o => o.trim()),
       'http://localhost:3000',
       'http://localhost:5173',
       'http://localhost:5174',

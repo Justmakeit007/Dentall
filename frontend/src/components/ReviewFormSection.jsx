@@ -12,8 +12,10 @@ export default function ReviewFormSection({ onSubmitSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.name.trim() || form.name.trim().length < 2) return setError('Please enter your name (at least 2 characters).');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) return setError('Please enter a valid email address.');
     if (form.rating === 0) return setError('Please select a star rating.');
-    if (!form.text.trim()) return setError('Please write a short review.');
+    if (!form.text.trim() || form.text.trim().length < 10) return setError('Please write a review (at least 10 characters).');
     setSubmitting(true); setError('');
     try {
       const res  = await fetch('/api/reviews', {

@@ -436,6 +436,15 @@
   }
 }
 
+/* ── Inline field errors ── */
+.dn-field-error {
+  display: block;
+  font-size: .72rem;
+  color: var(--danger);
+  margin-top: .3rem;
+  line-height: 1.3;
+}
+
 /* ── Checkout Steps ── */
 .dn-checkout-steps {
   display: flex;

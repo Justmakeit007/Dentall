@@ -17,6 +17,11 @@ import {
   SINGLE_PRICE,
 } from "./data/dentallData";
 import { clamp, easeInOut, lerp } from "./utils/math";
+/* ─── Validation helpers ─────────────────────────────────────── */
+const isValidEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
+const isValidPhone = v => /^[6-9]\d{9}$/.test(v.replace(/[\s\-()]/g, ''));
+const isValidPincode = v => /^\d{6}$/.test(v);
+
 /* ─── APP ──────────────────────────────────────────────────────── */
 export default function DentallApp() {
   const [cursorPos, setCursorPos]     = useState({ x:-100, y:-100 });
@@ -463,9 +468,13 @@ export default function DentallApp() {
 
   const placeOrder = () => {
     const errs = {};
-    ['fname','email','phone','address','city','state','pincode'].forEach(k => {
-      if (!form[k].trim()) errs[k] = true;
-    });
+    ['fname','address','city','state'].forEach(k => { if (!form[k].trim()) errs[k] = 'Required'; });
+    if (!form.fname.trim() || form.fname.trim().length < 2) errs.fname = 'Enter your first name';
+    if (!isValidEmail(form.email)) errs.email = 'Enter a valid email address';
+    if (!isValidPhone(form.phone)) errs.phone = 'Enter a valid 10-digit mobile number';
+    if (!form.address.trim()) errs.address = 'Required';
+    if (!form.city.trim()) errs.city = 'Required';
+    if (!form.state) errs.state = 'Required';
     setErrors(errs);
     if (Object.keys(errs).length) return;
     // Add to cart and open payment
@@ -992,8 +1001,11 @@ export default function DentallApp() {
                   </div>
                   <div className="dn-wholesale-field">
                     <label>Phone Number *</label>
-                    <input required type="tel" placeholder="+91 98765 43210" value={wholesaleForm.phone}
-                      onChange={e=>setWholesaleForm(f=>({...f,phone:e.target.value}))}/>
+                    <input required type="tel" placeholder="9876543210" value={wholesaleForm.phone}
+                      maxLength={10}
+                      onChange={e=>setWholesaleForm(f=>({...f,phone:e.target.value.replace(/\D/g,'').slice(0,10)}))}
+                      pattern="[6-9][0-9]{9}"
+                      title="Enter a valid 10-digit Indian mobile number"/>
                   </div>
                   <div className="dn-wholesale-field">
                     <label>City *</label>
@@ -1125,6 +1137,7 @@ export default function DentallApp() {
                             placeholder={ph}
                             style={{ borderColor: errors[key] ? 'var(--danger)' : '' }}
                           />
+                          {errors[key] && <span className="dn-field-error">{errors[key]}</span>}
                         </div>
                       ))}
                     </div>
@@ -1133,18 +1146,34 @@ export default function DentallApp() {
                       <label>Email</label>
                       <input type="email" value={form.email}
                         onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                        onBlur={() => {
+                          if (form.email && !isValidEmail(form.email))
+                            setErrors(e => ({ ...e, email: 'Enter a valid email address' }));
+                          else setErrors(e => ({ ...e, email: null }));
+                        }}
                         placeholder="arjun@email.com"
                         style={{ borderColor: errors.email ? 'var(--danger)' : '' }}
                       />
+                      {errors.email && <span className="dn-field-error">{errors.email}</span>}
                     </div>
 
                     <div className="dn-pay-field">
                       <label>Phone</label>
                       <input type="tel" value={form.phone}
-                        onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                        onChange={e => {
+                          const v = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setForm(f => ({ ...f, phone: v }));
+                        }}
+                        onBlur={() => {
+                          if (form.phone && !isValidPhone(form.phone))
+                            setErrors(e => ({ ...e, phone: 'Enter a valid 10-digit mobile number' }));
+                          else setErrors(e => ({ ...e, phone: null }));
+                        }}
                         placeholder="9876543210"
+                        maxLength={10}
                         style={{ borderColor: errors.phone ? 'var(--danger)' : '' }}
                       />
+                      {errors.phone && <span className="dn-field-error">{errors.phone}</span>}
                     </div>
 
                     <div className="dn-pay-field">
@@ -1179,9 +1208,12 @@ export default function DentallApp() {
 
                     <button className="dn-razorpay-btn" style={{marginTop:'.5rem'}} onClick={() => {
                       const errs = {};
-                      ['fname','email','phone','address','city','state'].forEach(k => {
-                        if (!form[k].trim()) errs[k] = true;
-                      });
+                      if (!form.fname.trim() || form.fname.trim().length < 2) errs.fname = 'Enter your first name';
+                      if (!isValidEmail(form.email)) errs.email = 'Enter a valid email address';
+                      if (!isValidPhone(form.phone)) errs.phone = 'Enter a valid 10-digit mobile number (starts with 6–9)';
+                      if (!form.address.trim()) errs.address = 'Required';
+                      if (!form.city.trim()) errs.city = 'Required';
+                      if (!form.state) errs.state = 'Required';
                       setErrors(errs);
                       if (Object.keys(errs).length === 0) setCheckoutStep(2);
                     }}>

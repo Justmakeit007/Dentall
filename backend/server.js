@@ -1314,13 +1314,10 @@ app.post('/api/reviews', reviewLimiter, async (req, res) => {
 
   console.log(`   name="${name}" email="${email}" rating=${rating} text="${text?.slice(0,40)}..."`);
 
-  if (!name)   return res.status(400).json({ error: 'Name is required.' });
-  if (!email)  return res.status(400).json({ error: 'Email is required.' });
-  if (!text)   return res.status(400).json({ error: 'Review text is required.' });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    return res.status(400).json({ error: 'Invalid email address.' });
-  if (rating < 1 || rating > 5)
-    return res.status(400).json({ error: 'Rating must be between 1 and 5.' });
+  if (!name || name.length < 2)   return res.status(400).json({ error: 'Name must be at least 2 characters.' });
+  if (!isValidEmail(email))        return res.status(400).json({ error: 'Invalid email address.' });
+  if (!text || text.length < 10)   return res.status(400).json({ error: 'Review must be at least 10 characters.' });
+  if (rating < 1 || rating > 5)    return res.status(400).json({ error: 'Rating must be between 1 and 5.' });
 
   try {
     const [result] = await db.execute(

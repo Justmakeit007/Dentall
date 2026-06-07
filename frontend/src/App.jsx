@@ -88,6 +88,14 @@ export default function DentallApp() {
   const [modalShipping, setModalShipping]       = useState(null);
   const [modalShipLoading, setModalShipLoading] = useState(false);
 
+  /* Auto-fetch shipping when modal opens with a pre-filled pincode */
+  useEffect(() => {
+    if (showPayment && form.pincode.length === 6) {
+      fetchModalShipping(form.pincode);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPayment]);
+
   const packPrice = selectedPack === 'family' ? FAMILY_PACK_PRICE : SINGLE_PRICE;
   const cartSubtotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
   const cartShipping = modalShipping?.charge ?? 0;
@@ -1181,6 +1189,13 @@ export default function DentallApp() {
         const v = e.target.value.replace(/\D/g,'').slice(0,6);
         setForm(f => ({ ...f, pincode: v }));
         if (v.length === 6) fetchModalShipping(v);
+      }}
+      onBlur={e => {
+        const v = e.target.value.replace(/\D/g,'').slice(0,6);
+        if (v.length === 6) {
+          setForm(f => ({ ...f, pincode: v }));
+          fetchModalShipping(v);
+        }
       }}
       placeholder="600001"
       style={{ borderColor: errors.pincode ? 'var(--danger)' : '' }}

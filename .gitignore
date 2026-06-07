@@ -1,7 +1,15 @@
+# Environment files
 .env
 .env.*
 **/.env
 **/.env.*
 !.env.example
 !**/.env.example
-node_modules
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs — backend/dist/ is built at deploy time by postinstall
+dist/
+!backend/dist/

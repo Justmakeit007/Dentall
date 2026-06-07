@@ -196,7 +196,7 @@ app.post(
 app.use(express.json({ limit: '4kb' }));
 
 // Serve React build in production
-app.use(express.static(path.join(__dirname, '../dist')));
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // ============================================================
 //  STEP 5 — RATE LIMITERS
@@ -1372,7 +1372,7 @@ app.use((err, req, res, _next) => {
 
 // ── Catch-all: serve React SPA for all non-API routes ──
 app.use((req, res) => {
-  res.sendFile(path.join(__dirname, '../dist', 'index.html'));
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // ============================================================

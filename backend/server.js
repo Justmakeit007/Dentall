@@ -173,17 +173,31 @@ const allowedOrigins = IS_PROD
       'http://localhost:5174',
     ];
 
-app.use(cors({
-  origin: (origin, cb) => {
-    // Allow same-origin requests (no Origin header) and listed origins
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-    console.warn(`⛔ CORS blocked origin: ${origin}`);
-    cb(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-secret'],
-}));
+if (!IS_PROD) {
+  // Development: allow requests from any origin (simpler for LAN/dev testing)
+  app.use((req, res, next) => {
+    const origin = req.headers.origin || '*';
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-admin-secret');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+  });
+} else {
+  app.use(cors({
+    origin: (origin, cb) => {
+      // Production: allow same-origin requests (no Origin header) and listed origins
+      try { console.log('CORS origin check:', origin); console.log('Allowed origins:', allowedOrigins.join(',')); } catch (e) {}
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      console.warn(`⛔ CORS blocked origin: ${origin}`);
+      cb(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-secret'],
+  }));
+}
 
 // ── Webhook route MUST receive raw body before JSON middleware ──
 app.post(

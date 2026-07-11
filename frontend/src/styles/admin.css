@@ -8,6 +8,16 @@
   font-family: inherit;
 }
 
+/* The main site hides the real cursor in favor of a JS-driven dot (theme.css)
+   — that dot doesn't exist on this page, so restore the normal cursor here. */
+.dn-admin-wrap,
+.dn-admin-wrap * {
+  cursor: auto !important;
+}
+.dn-admin-wrap button {
+  cursor: pointer !important;
+}
+
 .dn-admin-card {
   background: #fff;
   border-radius: 14px;

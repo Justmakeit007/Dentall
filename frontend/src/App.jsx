@@ -6,6 +6,7 @@ import ShipmentPage from "./components/ShipmentPage";
 import TrackingSection from "./components/TrackingSection";
 import videoThumbnail from "./assets/dentall-video-thumbnail1.png";
 import {
+  discountPercent,
   FAMILY_PACK_PRICE,
   FEATURES,
   INDIA_STATES,
@@ -14,7 +15,6 @@ import {
   PHASES,
   PRODUCTS,
   REVIEWS,
-  SINGLE_PRICE,
 } from "./data/dentallData";
 import { clamp, easeInOut, lerp } from "./utils/math";
 /* ─── Validation helpers ─────────────────────────────────────── */
@@ -39,8 +39,6 @@ export default function DentallApp() {
   const featRefs = useRef([]);
   const [featVisible, setFeatVisible] = useState(Array(4).fill(false));
 
-  const [selectedPack, setSelectedPack] = useState('family');
-  const [qty, setQty]     = useState(1);
   const [form, setForm]   = useState({ fname:'', lname:'', email:'', phone:'', address:'', city:'', state:'', pincode:'' });
   const [errors, setErrors] = useState({});
   const [toast, setToast]   = useState({ show:false, msg:'' });
@@ -94,11 +92,9 @@ export default function DentallApp() {
   const [modalShipLoading, setModalShipLoading] = useState(false);
   const [checkoutStep, setCheckoutStep]         = useState(1);
 
-  const packPrice = selectedPack === 'family' ? FAMILY_PACK_PRICE : SINGLE_PRICE;
   const cartSubtotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
   const cartShipping = modalShipping?.charge ?? 0;
   const cartTotal    = cartSubtotal + cartShipping;
-  const orderTotal   = packPrice * qty;
 
 
   /* ── Load Razorpay script once ── */
@@ -462,30 +458,6 @@ export default function DentallApp() {
     setCheckoutStep(1);
   };
 
-  /* ── Order form (direct, not cart) ── */
-  const changeQty   = d => setQty(q => Math.max(1, Math.min(10, q + d)));
-  const handleField = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-
-  const placeOrder = () => {
-    const errs = {};
-    ['fname','address','city','state'].forEach(k => { if (!form[k].trim()) errs[k] = 'Required'; });
-    if (!form.fname.trim() || form.fname.trim().length < 2) errs.fname = 'Enter your first name';
-    if (!isValidEmail(form.email)) errs.email = 'Enter a valid email address';
-    if (!isValidPhone(form.phone)) errs.phone = 'Enter a valid 10-digit mobile number';
-    if (!form.address.trim()) errs.address = 'Required';
-    if (!form.city.trim()) errs.city = 'Required';
-    if (!form.state) errs.state = 'Required';
-    setErrors(errs);
-    if (Object.keys(errs).length) return;
-    // Add to cart and open payment
-    const item = selectedPack === 'family'
-      ? { id:'family-pack', name:'Family Pack (12 brushes)', price: FAMILY_PACK_PRICE, icon:'🦷' }
-      : { id:'single-brush', name:'Single Brush',            price: SINGLE_PRICE,      icon:'🪥' };
-    // Add qty copies
-    setCartItems([{ ...item, qty }]);
-    setShowPayment(true);
-  };
-
   const scrollTo = id => {
     document.getElementById(id)?.scrollIntoView({ behavior:'smooth' });
     setDrawerOpen(false);
@@ -601,7 +573,7 @@ export default function DentallApp() {
         <button className="dn-cart-btn" style={{fontSize:'1rem',padding:'.8rem 2rem'}} onClick={()=>{setDrawerOpen(false);setCartOpen(true);}}>
           🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
         </button>
-        <button className="dn-nav-cta" onClick={()=>scrollTo('order')}>Family Pack — ₹599</button>
+        <button className="dn-nav-cta" onClick={()=>scrollTo('order')}>Family Pack — ₹{FAMILY_PACK_PRICE}</button>
       </div>
 
       {/* ── Hero ── */}
@@ -610,9 +582,9 @@ export default function DentallApp() {
   <div className="dn-hero-content">
     <div className="dn-hero-tag">Professional Dental Care</div>
     <h1 className="dn-h1">Brush with<br/><em>Confidence</em><br/>Every Day.</h1>
-    <p className="dn-hero-sub">DENTALL's precision-engineered bristle system and ergonomic grip deliver a dentist-quality clean — every single morning. Starting at just ₹49 per brush.</p>
+    <p className="dn-hero-sub">DENTALL's precision-engineered bristle system and ergonomic grip deliver a dentist-quality clean — every single morning. Just ₹{Math.round(FAMILY_PACK_PRICE / 12)} per brush with the Family Pack.</p>
     <div className="dn-hero-ctas">
-      <button className="dn-btn-primary" onClick={()=>scrollTo('order')}>Shop Now — from ₹599</button>
+      <button className="dn-btn-primary" onClick={()=>scrollTo('order')}>Shop Now — from ₹{FAMILY_PACK_PRICE}</button>
       <button className="dn-btn-ghost"   onClick={()=>scrollTo('scroll-stage')}>Explore Features</button>
     </div>
   </div>
@@ -657,13 +629,13 @@ export default function DentallApp() {
           </div>
           <div>
             <div className="dn-pack-math">
-              <div className="dn-pack-math-row"><span>Per brush</span><strong>₹50</strong></div>
-              <div className="dn-pack-math-row"><span>Family pack (12 brushes)</span><strong>₹599</strong></div>
+              <div className="dn-pack-math-row"><span>Per brush</span><strong>₹{Math.round(FAMILY_PACK_PRICE / 12)}</strong></div>
+              <div className="dn-pack-math-row"><span>Family pack (12 brushes)</span><strong>₹{FAMILY_PACK_PRICE}</strong></div>
               {/* <div className="dn-pack-math-row"><span>Per person per year</span><strong>₹150</strong></div> */}
               <div className="dn-pack-math-divider"/>
               <div className="dn-pack-math-total">
                 <div className="dn-pack-math-total-label">Family pack total</div>
-                <div className="dn-pack-math-price">₹599 <span>/ year</span></div>
+                <div className="dn-pack-math-price">₹{FAMILY_PACK_PRICE} <span>/ year</span></div>
               </div>
               <button className="dn-submit-btn" style={{margin:'1rem 0 0',fontSize:'.82rem'}} onClick={()=>scrollTo('order')}>Order Family Pack →</button>
               <button className="dn-add-cart-btn" style={{background:'rgba(255,255,255,.1)',borderColor:'rgba(255,255,255,.4)',color:'#fff',marginTop:'.6rem'}}
@@ -948,12 +920,20 @@ export default function DentallApp() {
           {PRODUCTS.map(p => (
             <div key={p.id} className={`dn-big-card ${p.badge==='Best Value'?'featured':''} ${p.id==='wholesale'?'wholesale':''}`}>
               {p.badge && <div className="dn-big-card-ribbon">{p.badge}</div>}
+              {p.mrp > p.price && <div className="dn-big-card-offer">{discountPercent(p.mrp, p.price)}% OFF</div>}
               <div className="dn-big-card-icon">{p.icon}</div>
               <div className="dn-big-card-name">{p.name}</div>
               <div className="dn-big-card-sub">{p.sub}</div>
-              <div className="dn-big-card-price">₹{p.price.toLocaleString('en-IN')}</div>
+              <div className="dn-big-card-price">
+                {p.mrp > p.price && (
+                  <span style={{ textDecoration: 'line-through', opacity: .5, fontSize: '.65em', marginRight: '.4em' }}>
+                    ₹{p.mrp.toLocaleString('en-IN')}
+                  </span>
+                )}
+                ₹{p.price.toLocaleString('en-IN')}
+              </div>
               <div className="dn-big-card-price-note">
-                {p.id==='family-pack' ? '≈ ₹599/year' : p.id==='kids-brush' ? 'Ultra-soft for ages 3–12' : 'Single brush · 4-month use'}
+                {p.id==='family-pack' ? `≈ ₹${FAMILY_PACK_PRICE}/year` : p.id==='kids-brush' ? 'Ultra-soft for ages 3–12' : 'Single brush · 4-month use'}
               </div>
               <div className="dn-big-card-divider"/>
               <div className="dn-big-card-perks">

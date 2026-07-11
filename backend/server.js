@@ -89,10 +89,13 @@ console.log(`   Origin:   ${process.env.ALLOWED_ORIGIN}\n`);
 // ============================================================
 //  STEP 2 — CATALOGUE: product price truth (backend is master)
 //  Frontend prices are NEVER trusted for charge amounts.
+//  ⚠️ Running an offer/price change? Update BOTH:
+//     1. This price (the amount actually charged)
+//     2. frontend/src/data/dentallData.js — FAMILY_PACK_PRICE
+//        (what's displayed before checkout)
 // ============================================================
 const PRODUCT_CATALOGUE = {
   'family-pack':  { name: 'Family Pack (12 brushes)', price: 599,  maxQty: 10 },
-  'single-brush': { name: 'Single Brush',              price: 49,   maxQty: 20 },
 };
 
 // ============================================================

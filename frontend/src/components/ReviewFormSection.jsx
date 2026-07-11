@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { GOOGLE_REVIEW_ENABLED, GOOGLE_PLACE_ID } from "../data/dentallData";
 
 /* ─── REVIEW FORM SECTION ────────────────────────────────────── */
 export default function ReviewFormSection({ onSubmitSuccess }) {
@@ -56,6 +57,17 @@ export default function ReviewFormSection({ onSubmitSuccess }) {
                 Your review has been submitted and is awaiting moderation.<br />
                 We really appreciate you taking the time!
               </p>
+              {GOOGLE_REVIEW_ENABLED && GOOGLE_PLACE_ID && (
+                <a
+                  href={`https://search.google.com/local/writereview?placeid=${GOOGLE_PLACE_ID}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="dn-review-submit-btn"
+                  style={{ display: 'inline-block', textDecoration: 'none', marginTop: '1.2rem' }}
+                >
+                  ⭐ Leave us a review on Google too
+                </a>
+              )}
             </div>
           ) : (
             <form onSubmit={handleSubmit}>

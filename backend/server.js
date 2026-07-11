@@ -1252,8 +1252,7 @@ function adminAuthMiddleware(req, res, next) {
   if (!IS_PROD) return next(); // skip in dev for convenience
 
   // In production: validate JWT or session here
-  // Example: if (token !== process.env.ADMIN_SECRET) return res.status(401).json({ error: 'Unauthorized' });
-  if (!token || token !== process.env.ADMIN_SECRET) {
+  if (!token || token !== process.env.DENTALL_ADMIN_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   next();

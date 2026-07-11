@@ -7,6 +7,7 @@ import TrackingSection from "./components/TrackingSection";
 import videoThumbnail from "./assets/dentall-video-thumbnail1.png";
 import {
   discountPercent,
+  FAMILY_PACK_MRP,
   FAMILY_PACK_PRICE,
   FEATURES,
   INDIA_STATES,
@@ -87,14 +88,69 @@ export default function DentallApp() {
 
   useEffect(() => { fetchReviews(); }, []);
 
+  /* ── Live pricing (admin-editable — falls back to build-time constants) ── */
+  const [livePricing, setLivePricing] = useState({
+    'family-pack': { price: FAMILY_PACK_PRICE, mrp: FAMILY_PACK_MRP },
+  });
+  useEffect(() => {
+    fetch('/api/pricing')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setLivePricing(prev => ({ ...prev, ...data })); })
+      .catch(() => {});
+  }, []);
+  const familyPackPrice = livePricing['family-pack'].price;
+  const familyPackMrp   = livePricing['family-pack'].mrp;
+  const products = PRODUCTS.map(p =>
+    livePricing[p.id] ? { ...p, price: livePricing[p.id].price, mrp: livePricing[p.id].mrp } : p
+  );
+
   /* ── Modal pincode (in payment modal) ── */
   const [modalShipping, setModalShipping]       = useState(null);
   const [modalShipLoading, setModalShipLoading] = useState(false);
   const [checkoutStep, setCheckoutStep]         = useState(1);
 
+  /* ── Coupon ── */
+  const [couponInput, setCouponInput]     = useState('');
+  const [coupon, setCoupon]               = useState(null); // { code, discountPercent }
+  const [couponChecking, setCouponChecking] = useState(false);
+  const [couponError, setCouponError]     = useState('');
+
+  const applyCoupon = async () => {
+    const code = couponInput.trim();
+    if (!code) return;
+    setCouponChecking(true);
+    setCouponError('');
+    try {
+      const res  = await fetch('/api/validate-coupon', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        setCoupon(null);
+        setCouponError(data.error || 'Invalid or expired coupon code.');
+      } else {
+        setCoupon({ code: data.code, discountPercent: data.discountPercent });
+      }
+    } catch {
+      setCoupon(null);
+      setCouponError('Could not verify coupon. Please try again.');
+    } finally {
+      setCouponChecking(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setCoupon(null);
+    setCouponInput('');
+    setCouponError('');
+  };
+
   const cartSubtotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
   const cartShipping = modalShipping?.charge ?? 0;
-  const cartTotal    = cartSubtotal + cartShipping;
+  const cartDiscount = coupon ? Math.round(cartSubtotal * coupon.discountPercent) / 100 : 0;
+  const cartTotal    = cartSubtotal - cartDiscount + cartShipping;
 
 
   /* ── Load Razorpay script once ── */
@@ -339,6 +395,7 @@ export default function DentallApp() {
       body: JSON.stringify({
         cartItems,                                  // server re-validates these
         shippingCharge: modalShipping?.charge ?? 0, // server caps this safely
+        couponCode: coupon?.code,                   // server re-validates this too
       }),
     });
  
@@ -399,8 +456,9 @@ export default function DentallApp() {
               },
               cartItems,
               shippingCharge: modalShipping?.charge ?? 0,
+              couponCode: coupon?.code,
               // NOTE: totalAmount is NOT sent — server computes it from
-              // cartItems + shippingCharge using its own catalogue prices.
+              // cartItems + shippingCharge + couponCode using its own catalogue prices.
             }),
           });
  
@@ -573,7 +631,7 @@ export default function DentallApp() {
         <button className="dn-cart-btn" style={{fontSize:'1rem',padding:'.8rem 2rem'}} onClick={()=>{setDrawerOpen(false);setCartOpen(true);}}>
           🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
         </button>
-        <button className="dn-nav-cta" onClick={()=>scrollTo('order')}>Family Pack — ₹{FAMILY_PACK_PRICE}</button>
+        <button className="dn-nav-cta" onClick={()=>scrollTo('order')}>Family Pack — ₹{familyPackPrice}</button>
       </div>
 
       {/* ── Hero ── */}
@@ -582,9 +640,9 @@ export default function DentallApp() {
   <div className="dn-hero-content">
     <div className="dn-hero-tag">Professional Dental Care</div>
     <h1 className="dn-h1">Brush with<br/><em>Confidence</em><br/>Every Day.</h1>
-    <p className="dn-hero-sub">DENTALL's precision-engineered bristle system and ergonomic grip deliver a dentist-quality clean — every single morning. Just ₹{Math.round(FAMILY_PACK_PRICE / 12)} per brush with the Family Pack.</p>
+    <p className="dn-hero-sub">DENTALL's precision-engineered bristle system and ergonomic grip deliver a dentist-quality clean — every single morning. Just ₹{Math.round(familyPackPrice / 12)} per brush with the Family Pack.</p>
     <div className="dn-hero-ctas">
-      <button className="dn-btn-primary" onClick={()=>scrollTo('order')}>Shop Now — from ₹{FAMILY_PACK_PRICE}</button>
+      <button className="dn-btn-primary" onClick={()=>scrollTo('order')}>Shop Now — from ₹{familyPackPrice}</button>
       <button className="dn-btn-ghost"   onClick={()=>scrollTo('scroll-stage')}>Explore Features</button>
     </div>
   </div>
@@ -629,13 +687,13 @@ export default function DentallApp() {
           </div>
           <div>
             <div className="dn-pack-math">
-              <div className="dn-pack-math-row"><span>Per brush</span><strong>₹{Math.round(FAMILY_PACK_PRICE / 12)}</strong></div>
-              <div className="dn-pack-math-row"><span>Family pack (12 brushes)</span><strong>₹{FAMILY_PACK_PRICE}</strong></div>
+              <div className="dn-pack-math-row"><span>Per brush</span><strong>₹{Math.round(familyPackPrice / 12)}</strong></div>
+              <div className="dn-pack-math-row"><span>Family pack (12 brushes)</span><strong>₹{familyPackPrice}</strong></div>
               {/* <div className="dn-pack-math-row"><span>Per person per year</span><strong>₹150</strong></div> */}
               <div className="dn-pack-math-divider"/>
               <div className="dn-pack-math-total">
                 <div className="dn-pack-math-total-label">Family pack total</div>
-                <div className="dn-pack-math-price">₹{FAMILY_PACK_PRICE} <span>/ year</span></div>
+                <div className="dn-pack-math-price">₹{familyPackPrice} <span>/ year</span></div>
               </div>
               <button className="dn-submit-btn" style={{margin:'1rem 0 0',fontSize:'.82rem'}} onClick={()=>scrollTo('order')}>Order Family Pack →</button>
               <button className="dn-add-cart-btn" style={{background:'rgba(255,255,255,.1)',borderColor:'rgba(255,255,255,.4)',color:'#fff',marginTop:'.6rem'}}
@@ -917,7 +975,7 @@ export default function DentallApp() {
 
         {/* Big product cards */}
         <div className="dn-products-big-grid">
-          {PRODUCTS.map(p => (
+          {products.map(p => (
             <div key={p.id} className={`dn-big-card ${p.badge==='Best Value'?'featured':''} ${p.id==='wholesale'?'wholesale':''}`}>
               {p.badge && <div className="dn-big-card-ribbon">{p.badge}</div>}
               {p.mrp > p.price && <div className="dn-big-card-offer">{discountPercent(p.mrp, p.price)}% OFF</div>}
@@ -933,7 +991,7 @@ export default function DentallApp() {
                 ₹{p.price.toLocaleString('en-IN')}
               </div>
               <div className="dn-big-card-price-note">
-                {p.id==='family-pack' ? `≈ ₹${FAMILY_PACK_PRICE}/year` : p.id==='kids-brush' ? 'Ultra-soft for ages 3–12' : 'Single brush · 4-month use'}
+                {p.id==='family-pack' ? `≈ ₹${familyPackPrice}/year` : p.id==='kids-brush' ? 'Ultra-soft for ages 3–12' : 'Single brush · 4-month use'}
               </div>
               <div className="dn-big-card-divider"/>
               <div className="dn-big-card-perks">
@@ -1302,6 +1360,12 @@ export default function DentallApp() {
                           {modalShipping?.charge === 0 ? 'FREE' : `₹${modalShipping?.charge ?? 0}`}
                         </span>
                       </div>
+                      {coupon && (
+                        <div className="dn-pay-summary-row">
+                          <span>Discount ({coupon.code}, {coupon.discountPercent}% off)</span>
+                          <span style={{ color: '#16a34a', fontWeight: 600 }}>−₹{cartDiscount.toLocaleString('en-IN')}</span>
+                        </div>
+                      )}
                       <div className="dn-pay-summary-row">
                         <span style={{fontSize:'.78rem',color:'var(--text-mid)'}}>Delivering to</span>
                         <span style={{fontSize:'.78rem',color:'var(--text-mid)'}}>{form.city}, {form.state} – {form.pincode}</span>
@@ -1310,6 +1374,35 @@ export default function DentallApp() {
                         <span>Total</span>
                         <span>₹{cartTotal.toLocaleString('en-IN')}</span>
                       </div>
+                    </div>
+
+                    {/* Coupon code */}
+                    <div style={{ marginTop: '1rem' }}>
+                      {coupon ? (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '.6rem .9rem', background: 'rgba(22,163,74,.08)', borderRadius: 6 }}>
+                          <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '.85rem' }}>✓ {coupon.code} applied</span>
+                          <button type="button" onClick={removeCoupon} style={{ background: 'none', border: 'none', color: 'var(--text-light)', fontSize: '.78rem', cursor: 'pointer', textDecoration: 'underline' }}>Remove</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '.6rem' }}>
+                          <input
+                            value={couponInput}
+                            onChange={e => setCouponInput(e.target.value.toUpperCase())}
+                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), applyCoupon())}
+                            placeholder="Have a coupon code?"
+                            style={{ flex: 1, padding: '0 .9rem', border: '1px solid var(--border-mid)', borderRadius: 4, fontSize: '.85rem' }}
+                          />
+                          <button
+                            type="button"
+                            className="dn-back-btn"
+                            onClick={applyCoupon}
+                            disabled={couponChecking || !couponInput.trim()}
+                          >
+                            {couponChecking ? '…' : 'Apply'}
+                          </button>
+                        </div>
+                      )}
+                      {couponError && <div style={{ color: '#e53935', fontSize: '.78rem', marginTop: '.5rem' }}>{couponError}</div>}
                     </div>
 
                     <p style={{fontSize:'.82rem',color:'var(--text-mid)',lineHeight:1.6,margin:'1rem 0'}}>

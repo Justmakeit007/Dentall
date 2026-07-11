@@ -89,13 +89,13 @@ console.log(`   Origin:   ${process.env.ALLOWED_ORIGIN}\n`);
 // ============================================================
 //  STEP 2 — CATALOGUE: product price truth (backend is master)
 //  Frontend prices are NEVER trusted for charge amounts.
-//  ⚠️ Running an offer/price change? Update BOTH:
-//     1. This price (the amount actually charged)
-//     2. frontend/src/data/dentallData.js — FAMILY_PACK_PRICE
-//        (what's displayed before checkout)
+//  These starting values are just a seed/fallback — once the server boots
+//  and connects to MySQL, live prices are loaded from the `pricing` table
+//  and kept in sync from there (see STEP 6 and /api/admin/pricing).
+//  Edit prices via the /admin panel, not by changing this file.
 // ============================================================
 const PRODUCT_CATALOGUE = {
-  'family-pack':  { name: 'Family Pack (12 brushes)', price: 599,  maxQty: 10 },
+  'family-pack':  { name: 'Family Pack (12 brushes)', price: 599, mrp: null, maxQty: 10 },
 };
 
 // ============================================================
@@ -154,6 +154,31 @@ function validateCartItems(rawItems) {
 }
 
 // ============================================================
+//  COUPONS — live-loaded from the `coupons` table (see STEP 6).
+//  Keyed by uppercased code. Managed via /api/admin/coupons.
+// ============================================================
+const COUPONS = {};
+
+function getCouponDiscount(code) {
+  if (!code) return { code: null, discountPercent: 0 };
+  const key = String(code).trim().toUpperCase();
+  const c   = COUPONS[key];
+  if (!c || !c.active) return { code: null, discountPercent: 0 };
+  return { code: key, discountPercent: c.discountPercent };
+}
+
+// Single source of truth for cart math — used by BOTH /api/create-order and
+// /api/verify-payment so the two totals always agree (Razorpay amount must
+// exactly match what verify-payment recomputes, or the payment is rejected).
+function computeCartTotal(cartItems, shippingCharge, couponCode) {
+  const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const { code, discountPercent } = getCouponDiscount(couponCode);
+  const discountAmount = Math.round(subtotal * discountPercent) / 100;
+  const total = Math.round((subtotal - discountAmount + shippingCharge) * 100) / 100;
+  return { subtotal, couponCode: code, discountPercent, discountAmount, total };
+}
+
+// ============================================================
 //  STEP 4 — EXPRESS APP + SECURITY MIDDLEWARE
 // ============================================================
 const app = express();
@@ -183,7 +208,7 @@ if (!IS_PROD) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-admin-secret');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-admin-token');
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
   });
@@ -198,7 +223,7 @@ if (!IS_PROD) {
     },
     credentials: true,
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-secret'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token'],
   }));
 }
 
@@ -317,6 +342,56 @@ db.getConnection()
       )
     `);
     console.log('wholesale_enquiries table ready');
+
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS pricing (
+        product_id VARCHAR(50) PRIMARY KEY,
+        price      DECIMAL(10,2) NOT NULL,
+        mrp        DECIMAL(10,2) NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    // Seed with the hardcoded fallback prices the first time this table is empty
+    for (const [id, ref] of Object.entries(PRODUCT_CATALOGUE)) {
+      await conn.execute(
+        'INSERT IGNORE INTO pricing (product_id, price, mrp) VALUES (?, ?, ?)',
+        [id, ref.price, ref.mrp]
+      );
+    }
+    // Load live prices from DB — this is what actually governs checkout amounts from here on
+    const [priceRows] = await conn.execute('SELECT product_id, price, mrp FROM pricing');
+    for (const row of priceRows) {
+      if (PRODUCT_CATALOGUE[row.product_id]) {
+        PRODUCT_CATALOGUE[row.product_id].price = Number(row.price);
+        PRODUCT_CATALOGUE[row.product_id].mrp   = row.mrp === null ? null : Number(row.mrp);
+      }
+    }
+    console.log('✅ pricing table ready, live prices loaded:',
+      Object.fromEntries(Object.entries(PRODUCT_CATALOGUE).map(([id, r]) => [id, r.price])));
+
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS coupons (
+        code             VARCHAR(30) PRIMARY KEY,
+        discount_percent DECIMAL(5,2) NOT NULL,
+        active           BOOLEAN DEFAULT TRUE,
+        created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    const [couponRows] = await conn.execute('SELECT code, discount_percent, active FROM coupons');
+    for (const row of couponRows) {
+      COUPONS[row.code] = { discountPercent: Number(row.discount_percent), active: !!row.active };
+    }
+    console.log(`✅ coupons table ready, ${couponRows.length} coupon(s) loaded`);
+
+    // Older installs may not have these columns yet — add them defensively
+    for (const stmt of [
+      'ALTER TABLE orders ADD COLUMN coupon_code VARCHAR(30) NULL',
+      'ALTER TABLE orders ADD COLUMN discount_amount DECIMAL(10,2) DEFAULT 0',
+    ]) {
+      await conn.execute(stmt).catch(() => {}); // ignore "duplicate column" if it already exists
+    }
+
     conn.release();
   })
   .catch(err  => {
@@ -881,9 +956,10 @@ app.post('/api/create-order', paymentLimiter, async (req, res) => {
 
   const shippingCharge = safeInt(req.body.shippingCharge, 0, 1000);
 
-  // ── Compute total SERVER-SIDE using catalogue prices ──
-  const subtotal   = cartItems.reduce((sum, i) => sum + i.price * i.qty, 0);
-  const totalPaise = (subtotal + shippingCharge) * 100; // convert to paise
+  // ── Compute total SERVER-SIDE using catalogue prices + live coupon ──
+  const { subtotal, couponCode, discountPercent, discountAmount, total } =
+    computeCartTotal(cartItems, shippingCharge, req.body.couponCode);
+  const totalPaise = total * 100; // convert to paise
 
   if (totalPaise < 100) {
     return res.status(400).json({ error: 'Order amount too small' });
@@ -898,16 +974,20 @@ app.post('/api/create-order', paymentLimiter, async (req, res) => {
         source:         'dentall-web',
         item_count:     cartItems.length,
         shipping_charge: shippingCharge,
+        coupon_code:    couponCode || '',
       },
     });
 
-    console.log(`✅ Razorpay order: ${order.id} | ₹${order.amount / 100}`);
+    console.log(`✅ Razorpay order: ${order.id} | ₹${order.amount / 100}${couponCode ? ` (coupon ${couponCode}, -₹${discountAmount})` : ''}`);
 
     res.json({
       orderId:        order.id,
       amount:         order.amount,
       keyId:          process.env.RAZORPAY_KEY_ID, // safe to expose public key
       computedTotal:  order.amount / 100,           // let client display correct amount
+      couponCode,
+      discountPercent,
+      discountAmount,
     });
   } catch (e) {
     console.error('Razorpay order creation failed:', e);
@@ -932,6 +1012,7 @@ app.post('/api/verify-payment', paymentLimiter, async (req, res) => {
     customerDetails,
     cartItems: rawCartItems,
     shippingCharge: rawShippingCharge,
+    couponCode: rawCouponCode,
   } = req.body;
 
   // ── Basic field presence check ──
@@ -987,8 +1068,9 @@ app.post('/api/verify-payment', paymentLimiter, async (req, res) => {
   }
 
   const shippingCharge = safeInt(rawShippingCharge, 0, 1000);
-  const subtotal       = cartItems.reduce((sum, i) => sum + i.price * i.qty, 0);
-  const expectedPaise  = Math.round((subtotal + shippingCharge) * 100);
+  const { subtotal, couponCode, discountPercent, discountAmount, total } =
+    computeCartTotal(cartItems, shippingCharge, rawCouponCode);
+  const expectedPaise = Math.round(total * 100);
 
   // ── 5. Amount integrity check: server total must match Razorpay order amount ──
   if (rzpOrder.amount !== expectedPaise) {
@@ -1037,15 +1119,15 @@ app.post('/api/verify-payment', paymentLimiter, async (req, res) => {
        (razorpay_order_id, razorpay_payment_id,
         customer_name, customer_email, customer_phone,
         customer_address, customer_city, customer_state, customer_pincode,
-        items_json, subtotal, shipping_charge, total, status, created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`,
+        items_json, subtotal, shipping_charge, coupon_code, discount_amount, total, status, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`,
       [
         razorpay_order_id,
         razorpay_payment_id,
         customer.name, customer.email, customer.phone,
         customer.address, customer.city, customer.state, customer.pincode,
         JSON.stringify(cartItems),
-        subtotal, shippingCharge, totalAmount,
+        subtotal, shippingCharge, couponCode, discountAmount, totalAmount,
         'paid',
       ]
     );
@@ -1176,6 +1258,129 @@ function adminAuthMiddleware(req, res, next) {
   }
   next();
 }
+
+// ============================================================
+//  ROUTE: GET /api/pricing  (public)
+//  Live price/MRP for the storefront — always reflects the latest
+//  admin-set values, no rebuild/redeploy needed.
+// ============================================================
+app.get('/api/pricing', (req, res) => {
+  const out = {};
+  for (const [id, ref] of Object.entries(PRODUCT_CATALOGUE)) {
+    out[id] = { price: ref.price, mrp: ref.mrp };
+  }
+  res.json(out);
+});
+
+// Lets the admin page verify a token without side effects
+app.get('/api/admin/ping', adminAuthMiddleware, (req, res) => res.json({ ok: true }));
+
+// ============================================================
+//  ROUTE: POST /api/admin/pricing
+//  Updates the price/MRP for a product — both in MySQL (persisted)
+//  and in the live in-memory catalogue (takes effect immediately).
+// ============================================================
+app.post('/api/admin/pricing', adminAuthMiddleware, async (req, res) => {
+  const { productId, price, mrp } = req.body || {};
+
+  if (!PRODUCT_CATALOGUE[productId]) {
+    return res.status(400).json({ error: 'Unknown product' });
+  }
+
+  const newPrice = Number(price);
+  if (!Number.isFinite(newPrice) || newPrice <= 0 || newPrice > 100000) {
+    return res.status(400).json({ error: 'Price must be a number between 1 and 100000' });
+  }
+
+  let newMrp = null;
+  if (mrp !== null && mrp !== undefined && mrp !== '') {
+    newMrp = Number(mrp);
+    if (!Number.isFinite(newMrp) || newMrp < newPrice || newMrp > 100000) {
+      return res.status(400).json({ error: 'MRP must be a number ≥ price (or leave blank to hide the offer badge)' });
+    }
+  }
+
+  try {
+    await db.execute(
+      `INSERT INTO pricing (product_id, price, mrp) VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE price = VALUES(price), mrp = VALUES(mrp)`,
+      [productId, newPrice, newMrp]
+    );
+    PRODUCT_CATALOGUE[productId].price = newPrice;
+    PRODUCT_CATALOGUE[productId].mrp   = newMrp;
+    console.log(`✅ Admin updated pricing: ${productId} → ₹${newPrice}${newMrp ? ` (MRP ₹${newMrp})` : ''}`);
+    res.json({ success: true, productId, price: newPrice, mrp: newMrp });
+  } catch (e) {
+    console.error('Pricing update failed:', e.message);
+    res.status(500).json({ error: 'Could not update pricing.' });
+  }
+});
+
+// ============================================================
+//  ROUTE: POST /api/validate-coupon  (public)
+//  Lets the checkout UI show "Coupon applied" before payment.
+//  This is a convenience check only — /api/create-order and
+//  /api/verify-payment always re-validate the coupon themselves.
+// ============================================================
+app.post('/api/validate-coupon', shippingLimiter, (req, res) => {
+  const { code, discountPercent } = getCouponDiscount(req.body?.code);
+  if (!code) {
+    return res.status(404).json({ valid: false, error: 'Invalid or expired coupon code.' });
+  }
+  res.json({ valid: true, code, discountPercent });
+});
+
+// ============================================================
+//  ROUTE: GET/POST /api/admin/coupons, DELETE /api/admin/coupons/:code
+//  Manage discount codes — changes take effect immediately (in-memory
+//  cache is updated alongside the DB write, same pattern as pricing).
+// ============================================================
+app.get('/api/admin/coupons', adminAuthMiddleware, (req, res) => {
+  const out = Object.entries(COUPONS).map(([code, c]) => ({
+    code, discountPercent: c.discountPercent, active: c.active,
+  }));
+  res.json(out);
+});
+
+app.post('/api/admin/coupons', adminAuthMiddleware, async (req, res) => {
+  const code = String(req.body?.code || '').trim().toUpperCase();
+  const discountPercent = Number(req.body?.discountPercent);
+  const active = req.body?.active !== false;
+
+  if (!/^[A-Z0-9_-]{3,30}$/.test(code)) {
+    return res.status(400).json({ error: 'Code must be 3-30 characters: letters, numbers, - or _' });
+  }
+  if (!Number.isFinite(discountPercent) || discountPercent <= 0 || discountPercent > 90) {
+    return res.status(400).json({ error: 'Discount percent must be a number between 1 and 90' });
+  }
+
+  try {
+    const isNew = !COUPONS[code];
+    await db.execute(
+      `INSERT INTO coupons (code, discount_percent, active) VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE discount_percent = VALUES(discount_percent), active = VALUES(active)`,
+      [code, discountPercent, active]
+    );
+    COUPONS[code] = { discountPercent, active };
+    console.log(`✅ Admin ${isNew ? 'created' : 'updated'} coupon: ${code} → ${discountPercent}% (${active ? 'active' : 'inactive'})`);
+    res.json({ success: true, code, discountPercent, active });
+  } catch (e) {
+    console.error('Coupon update failed:', e.message);
+    res.status(500).json({ error: 'Could not save coupon.' });
+  }
+});
+
+app.delete('/api/admin/coupons/:code', adminAuthMiddleware, async (req, res) => {
+  const code = String(req.params.code || '').trim().toUpperCase();
+  try {
+    await db.execute('DELETE FROM coupons WHERE code = ?', [code]);
+    delete COUPONS[code];
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Coupon delete failed:', e.message);
+    res.status(500).json({ error: 'Could not delete coupon.' });
+  }
+});
 
 app.get('/api/orders', adminAuthMiddleware, async (req, res) => {
   try {

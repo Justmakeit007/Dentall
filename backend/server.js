@@ -1494,7 +1494,7 @@ app.post('/api/capture-lead', leadLimiter, async (req, res) => {
             </a>
           </div>
           <p style="color:#8A6040;font-size:.78rem;text-align:center;line-height:1.7">
-            ⏰ Offer valid for 48 hours · 🔒 Razorpay secured · 🚚 Free shipping on family pack
+            ⏰ Offer valid for 48 hours · 🔒 Razorpay secured
           </p>
         </div>
         <div style="background:#F5EDDC;padding:1rem;text-align:center;font-size:.72rem;color:#8A6040;border-radius:0 0 12px 12px">

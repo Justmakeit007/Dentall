@@ -670,7 +670,7 @@ export default function DentallApp() {
               Our Family Pack of <strong style={{color:'#fff'}}>12 brushes</strong> covers a family of 4 for a full year — no reordering, no forgetting.
             </p>
             <div className="dn-pack-perks" style={{marginTop:'1.5rem'}}>
-              {['12 brushes in one box','Covers 4 people × 12 months','Change every 3 months','Free shipping included','Never run out mid-year'].map(p=>(
+              {['12 brushes in one box','Covers 4 people × 12 months','Change every 3 months','Never run out mid-year'].map(p=>(
                 <div key={p} className="dn-pack-perk"><div className="dn-pack-perk-dot"/> {p}</div>
               ))}
             </div>
@@ -965,9 +965,9 @@ export default function DentallApp() {
         <div className="dn-order-header">
           <div className="dn-section-label">Ready to upgrade?</div>
           <div className="dn-order-title">Choose your pack. <em>Start smiling better.</em></div>
-          <div className="dn-order-desc" style={{maxWidth:520,margin:'0 auto .6rem'}}>Free shipping across India · 30-day return guarantee · Razorpay secured</div>
+          <div className="dn-order-desc" style={{maxWidth:520,margin:'0 auto .6rem'}}>Razorpay secured</div>
           <div className="dn-order-perk-chips">
-            {['✓ Dentist recommended','✓ 12K+ happy customers','✓ Change every 3 months','✓ BPA-free materials','✓ Free shipping'].map(c=>(
+            {['✓ Dentist recommended','✓ 12K+ happy customers','✓ Change every 3 months','✓ BPA-free materials'].map(c=>(
               <span key={c} className="dn-order-perk-chip">{c}</span>
             ))}
           </div>
@@ -1122,10 +1122,10 @@ export default function DentallApp() {
         </div>
         <div className="dn-footer-copy">© 2025 Dentall. All rights reserved.</div>
         <div className="dn-footer-social">
-          <a href="https://wa.me/919999999999?text=Hi%20DENTALL%20team%2C%20I%20have%20a%20question%20about%20your%20product" target="_blank" rel="noopener noreferrer" aria-label="Chat with Dentall on WhatsApp">
+          <a href="https://wa.me/919489127937?text=Hi%20DENTALL%20team%2C%20a%20client%20is%20checking%20out%20your%20product%20and%20has%20a%20question" target="_blank" rel="noopener noreferrer" aria-label="Chat with Dentall on WhatsApp">
             <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="dn-footer-social-icon" />
           </a>
-          <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Visit Dentall on Instagram">
+          <a href="https://www.instagram.com/den_tall001/" target="_blank" rel="noopener noreferrer" aria-label="Visit Dentall on Instagram">
             <img src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png" alt="Instagram" className="dn-footer-social-icon" />
           </a>
         </div>

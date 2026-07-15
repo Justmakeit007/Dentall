@@ -55,7 +55,7 @@ export const PRODUCTS = [
     price: FAMILY_PACK_PRICE,
     mrp:   FAMILY_PACK_MRP,
     badge: 'Best Value',
-    perks: ['Covers a family of 4', 'Change every 4 months', 'Free shipping'],
+    perks: ['Covers a family of 4', 'Change every 4 months'],
   },
   {
     id:    'wholesale',

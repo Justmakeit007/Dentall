@@ -1,0 +1,585 @@
+/* ══════════════════════════════════════════════════════════════
+   PRODUCTS & ORDERS SECTION
+   ══════════════════════════════════════════════════════════════ */
+
+.dn-order { 
+  padding: 3rem max(1.5rem, calc((100vw - 1280px)/2)) 4rem; 
+  background: var(--off-white); 
+  border-top: 1px solid var(--border-light); 
+}
+
+.dn-order-title { 
+  font-family: 'Fraunces', serif; 
+  font-size: clamp(1.4rem, 2.2vw, 2.2rem); 
+  font-weight: 900; 
+  color: var(--text-dark); 
+  line-height: 1.1; 
+  margin-bottom: 0.5rem; 
+}
+
+.dn-order-title em { 
+  color: var(--primary); 
+  font-style: italic; 
+}
+
+.dn-order-desc { 
+  font-size: 0.82rem; 
+  color: var(--text-mid); 
+  line-height: 1.7; 
+  margin-bottom: 0.8rem; 
+}
+
+.dn-include-item { 
+  display: flex; 
+  align-items: center; 
+  gap: 0.8rem; 
+  font-size: 0.82rem; 
+  color: var(--text-mid); 
+  padding: 0.6rem 0; 
+  border-bottom: 1px solid var(--primary-muted); 
+}
+
+.dn-check { 
+  color: var(--success); 
+  font-size: 0.82rem; 
+  font-weight: 700; 
+}
+
+/* ── Order Header Strip ── */
+.dn-order-header { 
+  text-align: center; 
+  margin-bottom: 2rem; 
+}
+
+.dn-order-header-info { 
+  display: inline-block; 
+}
+
+.dn-order-perk-chips { 
+  display: flex; 
+  flex-wrap: wrap; 
+  gap: 0.4rem; 
+  justify-content: center; 
+  margin-top: 0.8rem; 
+}
+
+.dn-order-perk-chip { 
+  display: inline-flex; 
+  align-items: center; 
+  gap: 0.3rem; 
+  background: var(--white); 
+  border: 1px solid var(--border-mid); 
+  border-radius: 20px; 
+  padding: 0.22rem 0.65rem; 
+  font-size: 0.63rem; 
+  color: var(--text-mid); 
+}
+
+/* ── Product Cards Grid ── */
+.dn-products-big-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.2rem;
+  max-width: 820px;
+  margin: 0 auto 1.5rem;
+}
+
+.dn-big-card { 
+  background: var(--white); 
+  border: 1.5px solid var(--border-mid); 
+  border-radius: 16px; 
+  padding: 1.6rem 1.5rem; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 0.55rem; 
+  position: relative; 
+  overflow: hidden; 
+  transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s; 
+}
+
+.dn-big-card:hover { 
+  transform: translateY(-5px); 
+  box-shadow: 0 16px 48px var(--primary-muted); 
+  border-color: var(--primary); 
+}
+
+.dn-big-card.featured { 
+  border-color: var(--primary); 
+  background: linear-gradient(160deg, #fff 50%, var(--primary-pale)); 
+}
+
+.dn-big-card.wholesale {
+  border-color: color-mix(in srgb, var(--secondary) 34%, transparent);
+}
+
+.dn-big-card-ribbon {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.8rem;
+  border-radius: 0 16px 0 10px;
+}
+
+.dn-big-card-offer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: #e53935;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.28rem 0.8rem;
+  border-radius: 16px 0 10px 0;
+}
+
+.dn-big-card-icon { 
+  font-size: 2.2rem; 
+}
+
+.dn-big-card-name { 
+  font-family: 'Fraunces', serif; 
+  font-size: 1.15rem; 
+  font-weight: 900; 
+  color: var(--text-dark); 
+  line-height: 1.1; 
+}
+
+.dn-big-card-sub { 
+  font-size: 0.67rem; 
+  color: var(--text-light); 
+}
+
+.dn-big-card-price { 
+  font-family: 'Fraunces', serif; 
+  font-size: 2rem; 
+  font-weight: 900; 
+  color: var(--primary); 
+  line-height: 1; 
+  margin: 0.1rem 0; 
+}
+
+.dn-big-card-price-note { 
+  font-size: 0.6rem; 
+  color: var(--text-light); 
+}
+
+.dn-big-card.wholesale .dn-big-card-price {
+  font-size: 0;
+}
+
+.dn-big-card.wholesale .dn-big-card-price::before {
+  content: "Custom Pricing";
+  font-size: 1.45rem;
+  letter-spacing: 0.02em;
+}
+
+.dn-big-card.wholesale .dn-big-card-price-note {
+  font-size: 0;
+}
+
+.dn-big-card.wholesale .dn-big-card-price-note::before {
+  content: "Volume discounts · MOQ 100 units";
+  font-size: 0.6rem;
+}
+
+.dn-big-card-divider { 
+  height: 1px; 
+  background: var(--border-light); 
+  margin: 0.2rem 0; 
+}
+
+.dn-big-card-perks { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 0.38rem; 
+  flex: 1; 
+}
+
+.dn-big-card-perk { 
+  display: flex; 
+  align-items: center; 
+  gap: 0.45rem; 
+  font-size: 0.73rem; 
+  color: var(--text-mid); 
+}
+
+.dn-big-card-perk-check { 
+  color: var(--success); 
+  flex-shrink: 0; 
+}
+
+.dn-big-card-btn { 
+  margin-top: 0.7rem; 
+  width: 100%; 
+  background: var(--primary); 
+  color: #fff; 
+  border: none; 
+  padding: 0.75rem; 
+  font-family: 'DM Sans', sans-serif; 
+  font-size: 0.78rem; 
+  font-weight: 700; 
+  letter-spacing: 0.08em; 
+  text-transform: uppercase; 
+  border-radius: 8px; 
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.dn-big-card-btn:hover { 
+  background: var(--primary-dark); 
+}
+
+.dn-wholesale-btn,
+.dn-big-card.wholesale .dn-big-card-btn {
+  background: var(--secondary);
+}
+
+.dn-wholesale-btn:hover,
+.dn-big-card.wholesale .dn-big-card-btn:hover {
+  background: color-mix(in srgb, var(--secondary) 82%, #263047);
+}
+
+.dn-wholesale-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.dn-wholesale-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(18, 18, 18, 0.72);
+  backdrop-filter: blur(5px);
+}
+
+.dn-wholesale-box {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: min(88vh, 760px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32);
+}
+
+.dn-wholesale-header {
+  background: var(--primary);
+  color: #fff;
+  padding: 1.7rem 1.8rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dn-wholesale-header h2 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.45rem;
+  line-height: 1.1;
+  margin: 0 0 0.35rem;
+}
+
+.dn-wholesale-header p {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.dn-wholesale-close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dn-wholesale-body {
+  padding: 1.8rem;
+}
+
+.dn-wholesale-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 0.9rem;
+}
+
+.dn-wholesale-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.dn-wholesale-field.full {
+  grid-column: 1 / -1;
+}
+
+.dn-wholesale-field label {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5f6672;
+}
+
+.dn-wholesale-field input,
+.dn-wholesale-field select,
+.dn-wholesale-field textarea {
+  width: 100%;
+  border: 1px solid #d9dce1;
+  border-radius: 5px;
+  padding: 0.74rem 0.8rem;
+  font: inherit;
+  font-size: 0.86rem;
+  color: #242936;
+  background: #fff;
+}
+
+.dn-wholesale-field textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.dn-wholesale-error {
+  margin-top: 1rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 26%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  color: var(--primary);
+  border-radius: 6px;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.dn-wholesale-submit {
+  width: 100%;
+  margin-top: 1.2rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--primary);
+  color: #fff;
+  padding: 0.9rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.dn-wholesale-submit:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.dn-wholesale-success {
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.dn-wholesale-success-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 176, 135, 0.12);
+  color: var(--success);
+  font-size: 1.6rem;
+  font-weight: 900;
+}
+
+.dn-wholesale-success h3 {
+  font-family: 'Fraunces', serif;
+  margin: 0 0 0.5rem;
+  color: var(--text-dark);
+}
+
+.dn-wholesale-success p {
+  margin: 0 auto;
+  max-width: 420px;
+  color: var(--text-mid);
+  line-height: 1.7;
+}
+
+.dn-big-card.featured .dn-big-card-btn { 
+  box-shadow: 0 6px 20px var(--primary-muted); 
+}
+
+/* ── Product Cards ── */
+.dn-product-card {
+  background: var(--white); 
+  border: 1.5px solid var(--border-mid); 
+  border-radius: 8px;
+  padding: 1.2rem 1.4rem; 
+  box-shadow: var(--shadow-soft);
+  display: flex; 
+  align-items: center; 
+  gap: 1.2rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.dn-product-card:hover { 
+  border-color: var(--primary); 
+  box-shadow: var(--shadow-hover); 
+}
+
+.dn-product-icon {
+  width: 50px; 
+  height: 50px; 
+  flex-shrink: 0; 
+  background: var(--off-white);
+  border: 1px solid var(--border-light); 
+  border-radius: 8px;
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  font-size: 1.5rem;
+}
+
+.dn-product-info { 
+  flex: 1; 
+  min-width: 0; 
+}
+
+.dn-product-name { 
+  font-weight: 700; 
+  font-size: 0.9rem; 
+  color: var(--text-dark); 
+}
+
+.dn-product-badge {
+  background: var(--primary); 
+  color: #fff; 
+  font-size: 0.5rem; 
+  font-weight: 700;
+  letter-spacing: 0.08em; 
+  padding: 0.15rem 0.45rem; 
+  border-radius: 3px; 
+  text-transform: uppercase;
+  vertical-align: middle; 
+  margin-left: 0.4rem;
+}
+
+.dn-product-sub { 
+  font-size: 0.72rem; 
+  color: var(--text-light); 
+  margin: 0.2rem 0 0.4rem; 
+}
+
+.dn-product-perks { 
+  display: flex; 
+  gap: 0.6rem; 
+  flex-wrap: wrap; 
+}
+
+.dn-product-perk { 
+  font-size: 0.65rem; 
+  color: var(--text-mid); 
+}
+
+.dn-product-action { 
+  text-align: right; 
+  flex-shrink: 0; 
+}
+
+.dn-product-price {
+  font-family: 'Fraunces', serif; 
+  font-size: 1.3rem; 
+  font-weight: 900;
+  color: var(--primary); 
+  margin-bottom: 0.5rem; 
+  white-space: nowrap;
+}
+
+/* ── Responsive ── */
+@media(max-width: 960px) {
+  .dn-order-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+@media(max-width: 640px) {
+  .dn-products-big-grid {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+  }
+
+  .dn-order {
+    padding: 2rem 1.2rem;
+  }
+
+  .dn-wholesale-modal {
+    align-items: flex-start;
+    padding: 1rem;
+  }
+
+  .dn-wholesale-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dn-wholesale-header,
+  .dn-wholesale-body {
+    padding: 1.35rem;
+  }
+}
+
+@media(orientation: landscape) and (max-height: 520px) {
+  .dn-order {
+    padding: 2rem 1.5rem;
+  }
+
+  .dn-products-big-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media(max-width: 600px){
+  .dn-product-card { 
+    flex-direction: column; 
+    align-items: flex-start; 
+    gap: 0.8rem; 
+  }
+  
+  .dn-product-action { 
+    width: 100%; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+  }
+  
+  .dn-product-price { 
+    margin-bottom: 0; 
+  }
+}
+
+@media(max-width: 480px) {
+  .dn-order { 
+    padding: 3rem 1.2rem; 
+  } 
+  
+  .dn-product-card { 
+    padding: 1rem 1.1rem; 
+  }
+  
+  .dn-product-action .dn-btn-primary { 
+    width: auto; 
+    font-size: 0.72rem; 
+    padding: 0.5rem 0.9rem; 
+  }
+}

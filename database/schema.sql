@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS orders (
     items_json            TEXT,
    subtotal              DECIMAL(10,2),
    shipping_charge       DECIMAL(10,2) DEFAULT 0,
+   coupon_code           VARCHAR(30),
+   discount_amount       DECIMAL(10,2) DEFAULT 0,
     total                 DECIMAL(10,2),
    status                VARCHAR(50)  DEFAULT 'pending',
    awb_number            VARCHAR(100),
@@ -50,5 +52,38 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_email (email),
   INDEX idx_approved (approved),
+  INDEX idx_created (created_at)
+);
+
+CREATE TABLE IF NOT EXISTS pricing (
+  product_id VARCHAR(50) PRIMARY KEY,
+  price      DECIMAL(10,2) NOT NULL,
+  mrp        DECIMAL(10,2) NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS coupons (
+  code             VARCHAR(30) PRIMARY KEY,
+  discount_percent DECIMAL(5,2) NOT NULL,
+  active           BOOLEAN DEFAULT TRUE,
+  created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS wholesale_enquiries (
+  id             INT AUTO_INCREMENT PRIMARY KEY,
+  full_name      VARCHAR(150) NOT NULL,
+  business_name  VARCHAR(180) NOT NULL,
+  email          VARCHAR(150) NOT NULL,
+  phone          VARCHAR(20)  NOT NULL,
+  city           VARCHAR(100) NOT NULL,
+  state          VARCHAR(100) NOT NULL,
+  quantity_range VARCHAR(30)  NOT NULL,
+  business_type  VARCHAR(60),
+  message        TEXT,
+  status         VARCHAR(40) DEFAULT 'new',
+  created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_email   (email),
+  INDEX idx_status  (status),
   INDEX idx_created (created_at)
 );

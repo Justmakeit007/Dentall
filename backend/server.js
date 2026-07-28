@@ -89,10 +89,13 @@ console.log(`   Origin:   ${process.env.ALLOWED_ORIGIN}\n`);
 // ============================================================
 //  STEP 2 — CATALOGUE: product price truth (backend is master)
 //  Frontend prices are NEVER trusted for charge amounts.
+//  These starting values are just a seed/fallback — once the server boots
+//  and connects to MySQL, live prices are loaded from the `pricing` table
+//  and kept in sync from there (see STEP 6 and /api/admin/pricing).
+//  Edit prices via the /admin panel, not by changing this file.
 // ============================================================
 const PRODUCT_CATALOGUE = {
-  'family-pack':  { name: 'Family Pack (12 brushes)', price: 5990,  maxQty: 10 },
-  'single-brush': { name: 'Single Brush',              price: 599,   maxQty: 20 },
+  'family-pack':  { name: 'Family Pack (12 brushes)', price: 599, mrp: null, maxQty: 10 },
 };
 
 // ============================================================
@@ -120,7 +123,8 @@ function isValidPincode(pin) {
 }
 
 function isValidPhone(phone) {
-  return /^\+?[\d\s\-()]{7,20}$/.test(phone);
+  // 10-digit Indian mobile, must start with 6–9
+  return /^[6-9]\d{9}$/.test(String(phone).replace(/[\s\-()]/g, ''));
 }
 
 // Safe integer — prevents NaN and float abuse
@@ -150,6 +154,31 @@ function validateCartItems(rawItems) {
 }
 
 // ============================================================
+//  COUPONS — live-loaded from the `coupons` table (see STEP 6).
+//  Keyed by uppercased code. Managed via /api/admin/coupons.
+// ============================================================
+const COUPONS = {};
+
+function getCouponDiscount(code) {
+  if (!code) return { code: null, discountPercent: 0 };
+  const key = String(code).trim().toUpperCase();
+  const c   = COUPONS[key];
+  if (!c || !c.active) return { code: null, discountPercent: 0 };
+  return { code: key, discountPercent: c.discountPercent };
+}
+
+// Single source of truth for cart math — used by BOTH /api/create-order and
+// /api/verify-payment so the two totals always agree (Razorpay amount must
+// exactly match what verify-payment recomputes, or the payment is rejected).
+function computeCartTotal(cartItems, shippingCharge, couponCode) {
+  const subtotal = cartItems.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const { code, discountPercent } = getCouponDiscount(couponCode);
+  const discountAmount = Math.round(subtotal * discountPercent) / 100;
+  const total = Math.round((subtotal - discountAmount + shippingCharge) * 100) / 100;
+  return { subtotal, couponCode: code, discountPercent, discountAmount, total };
+}
+
+// ============================================================
 //  STEP 4 — EXPRESS APP + SECURITY MIDDLEWARE
 // ============================================================
 const app = express();
@@ -162,27 +191,41 @@ app.use(helmet({
   contentSecurityPolicy: IS_PROD ? undefined : false, // relax CSP in dev
 }));
 
-// CORS — strict origin whitelist
+// CORS — strict origin whitelist (supports comma-separated ALLOWED_ORIGIN)
 const allowedOrigins = IS_PROD
-  ? [process.env.ALLOWED_ORIGIN]
+  ? process.env.ALLOWED_ORIGIN.split(',').map(o => o.trim())
   : [
-      process.env.ALLOWED_ORIGIN,
+      ...process.env.ALLOWED_ORIGIN.split(',').map(o => o.trim()),
       'http://localhost:3000',
       'http://localhost:5173',
       'http://localhost:5174',
     ];
 
-app.use(cors({
-  origin: (origin, cb) => {
-    // Allow same-origin requests (no Origin header) and listed origins
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-    console.warn(`⛔ CORS blocked origin: ${origin}`);
-    cb(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-secret'],
-}));
+if (!IS_PROD) {
+  // Development: allow requests from any origin (simpler for LAN/dev testing)
+  app.use((req, res, next) => {
+    const origin = req.headers.origin || '*';
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-admin-token');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+  });
+} else {
+  app.use(cors({
+    origin: (origin, cb) => {
+      // Production: allow same-origin requests (no Origin header) and listed origins
+      try { console.log('CORS origin check:', origin); console.log('Allowed origins:', allowedOrigins.join(',')); } catch (e) {}
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      console.warn(`⛔ CORS blocked origin: ${origin}`);
+      cb(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-token'],
+  }));
+}
 
 // ── Webhook route MUST receive raw body before JSON middleware ──
 app.post(
@@ -195,7 +238,7 @@ app.post(
 app.use(express.json({ limit: '4kb' }));
 
 // Serve React build in production
-app.use(express.static(path.join(__dirname, '../dist')));
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // ============================================================
 //  STEP 5 — RATE LIMITERS
@@ -279,6 +322,76 @@ db.getConnection()
     if (migrated.affectedRows > 0)
       console.log(`✅ Approved ${migrated.affectedRows} existing review(s)`);
     console.log('✅ reviews table ready');
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS wholesale_enquiries (
+        id             INT AUTO_INCREMENT PRIMARY KEY,
+        full_name      VARCHAR(150) NOT NULL,
+        business_name  VARCHAR(180) NOT NULL,
+        email          VARCHAR(150) NOT NULL,
+        phone          VARCHAR(20)  NOT NULL,
+        city           VARCHAR(100) NOT NULL,
+        state          VARCHAR(100) NOT NULL,
+        quantity_range VARCHAR(30)  NOT NULL,
+        business_type  VARCHAR(60),
+        message        TEXT,
+        status         VARCHAR(40) DEFAULT 'new',
+        created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_email   (email),
+        INDEX idx_status  (status),
+        INDEX idx_created (created_at)
+      )
+    `);
+    console.log('wholesale_enquiries table ready');
+
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS pricing (
+        product_id VARCHAR(50) PRIMARY KEY,
+        price      DECIMAL(10,2) NOT NULL,
+        mrp        DECIMAL(10,2) NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    // Seed with the hardcoded fallback prices the first time this table is empty
+    for (const [id, ref] of Object.entries(PRODUCT_CATALOGUE)) {
+      await conn.execute(
+        'INSERT IGNORE INTO pricing (product_id, price, mrp) VALUES (?, ?, ?)',
+        [id, ref.price, ref.mrp]
+      );
+    }
+    // Load live prices from DB — this is what actually governs checkout amounts from here on
+    const [priceRows] = await conn.execute('SELECT product_id, price, mrp FROM pricing');
+    for (const row of priceRows) {
+      if (PRODUCT_CATALOGUE[row.product_id]) {
+        PRODUCT_CATALOGUE[row.product_id].price = Number(row.price);
+        PRODUCT_CATALOGUE[row.product_id].mrp   = row.mrp === null ? null : Number(row.mrp);
+      }
+    }
+    console.log('✅ pricing table ready, live prices loaded:',
+      Object.fromEntries(Object.entries(PRODUCT_CATALOGUE).map(([id, r]) => [id, r.price])));
+
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS coupons (
+        code             VARCHAR(30) PRIMARY KEY,
+        discount_percent DECIMAL(5,2) NOT NULL,
+        active           BOOLEAN DEFAULT TRUE,
+        created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    const [couponRows] = await conn.execute('SELECT code, discount_percent, active FROM coupons');
+    for (const row of couponRows) {
+      COUPONS[row.code] = { discountPercent: Number(row.discount_percent), active: !!row.active };
+    }
+    console.log(`✅ coupons table ready, ${couponRows.length} coupon(s) loaded`);
+
+    // Older installs may not have these columns yet — add them defensively
+    for (const stmt of [
+      'ALTER TABLE orders ADD COLUMN coupon_code VARCHAR(30) NULL',
+      'ALTER TABLE orders ADD COLUMN discount_amount DECIMAL(10,2) DEFAULT 0',
+    ]) {
+      await conn.execute(stmt).catch(() => {}); // ignore "duplicate column" if it already exists
+    }
+
     conn.release();
   })
   .catch(err  => {
@@ -338,25 +451,34 @@ function mockTrackingData(awbNumber, orderId) {
   };
 }
 
-// ── REAL Shiprocket order creation ──
+// ── REAL Shiprocket order creation (3-step: create → courier → AWB) ──
 async function createShiprocketOrder({ orderId, customer, cartItems, totalAmount }) {
-  const token = await getShiprocketToken();
+  const token   = await getShiprocketToken();
+  const headers = { Authorization: `Bearer ${token}` };
+
+  // 0.5 kg per brush unit, minimum 0.5 kg
+  const totalQty    = cartItems.reduce((s, i) => s + i.qty, 0);
+  const totalWeight = Math.max(0.5, cartItems.reduce((s, i) => s + i.qty * 0.5, 0));
+
   const items = cartItems.map(i => ({
     name:          i.name,
     sku:           i.id,
     units:         i.qty,
     selling_price: i.price,
-    discount: 0, tax: 0, hsn: 0,
+    discount: 0, tax: 0, hsn: 96190,  // HSN code for toothbrushes
   }));
 
-  const { data } = await axios.post(
+  // ── Step 1: Create order in Shiprocket ──
+  const { data: orderResp } = await axios.post(
     'https://apiv2.shiprocket.in/v1/external/orders/create/adhoc',
     {
       order_id:              `DNT-${orderId}`,
       order_date:            new Date().toISOString().slice(0, 19).replace('T', ' '),
-      pickup_location:       'Primary',
+      pickup_location:       'Home',
       billing_customer_name: customer.name,
+      billing_last_name:     '',
       billing_address:       customer.address,
+      billing_address_2:     '',
       billing_city:          customer.city,
       billing_pincode:       customer.pincode,
       billing_state:         customer.state,
@@ -367,13 +489,60 @@ async function createShiprocketOrder({ orderId, customer, cartItems, totalAmount
       order_items:           items,
       payment_method:        'Prepaid',
       sub_total:             totalAmount,
-      length: 20, breadth: 10, height: 5, weight: 0.5,
+      length:  20,
+      breadth: 15,
+      height:  Math.min(30, 5 * totalQty),
+      weight:  totalWeight,
     },
-    { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }
+    { headers, timeout: 15000 }
   );
 
-  if (!data.awb_code) throw new Error('Shiprocket: no AWB returned — ' + JSON.stringify(data));
-  return { awb_code: data.awb_code, shipment_id: data.shipment_id };
+  const shipmentId = orderResp.shipment_id;
+  if (!shipmentId) {
+    throw new Error('Shiprocket order creation failed: ' + JSON.stringify(orderResp));
+  }
+  console.log(`   Shiprocket shipment created: id=${shipmentId}`);
+
+  // ── Step 2: Find cheapest available courier ──
+  const { data: serviceResp } = await axios.get(
+    'https://apiv2.shiprocket.in/v1/external/courier/serviceability/',
+    {
+      headers,
+      params: {
+        pickup_postcode:   process.env.YOUR_PINCODE,
+        delivery_postcode: customer.pincode,
+        weight:            totalWeight,
+        cod:               0,
+      },
+      timeout: 10000,
+    }
+  );
+
+  const couriers  = serviceResp.data?.available_courier_companies || [];
+  couriers.sort((a, b) => (a.rate || 0) - (b.rate || 0));
+  const courierId = couriers[0]?.courier_company_id;
+  if (!courierId) {
+    throw new Error(`No courier available from ${process.env.YOUR_PINCODE} to ${customer.pincode}`);
+  }
+  console.log(`   Courier: ${couriers[0].courier_name} (id=${courierId})`);
+
+  // ── Step 3: Assign courier and generate AWB ──
+  const { data: awbResp } = await axios.post(
+    'https://apiv2.shiprocket.in/v1/external/courier/assign/awb',
+    { shipment_id: String(shipmentId), courier_id: String(courierId) },
+    { headers, timeout: 15000 }
+  );
+
+  const awbCode = awbResp.response?.data?.awb_code || awbResp.awb_code;
+  if (!awbCode) {
+    throw new Error('Shiprocket AWB assignment failed: ' + JSON.stringify(awbResp));
+  }
+
+  return {
+    awb_code:            awbCode,
+    shipment_id:         String(shipmentId),
+    shiprocket_order_id: String(orderResp.order_id),
+  };
 }
 
 // ============================================================
@@ -457,6 +626,45 @@ async function generateReceiptPDF(customer, orderData) {
 // ============================================================
 //  STEP 10 — EMAIL RECEIPT SENDER
 // ============================================================
+function createMailTransport({ allowExpiredCerts = false } = {}) {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 465),
+    secure: String(process.env.SMTP_SECURE || 'true') !== 'false',
+    family: Number(process.env.SMTP_FAMILY || 4),
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT || 15000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT || 15000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT || 30000),
+    auth: { user: process.env.EMAIL_FROM, pass: process.env.EMAIL_PASS },
+    tls: {
+      servername: process.env.SMTP_HOST || 'smtp.gmail.com',
+      minVersion: 'TLSv1.2',
+      rejectUnauthorized: !allowExpiredCerts,
+    },
+  });
+}
+
+async function sendDentallMail(mailOptions) {
+  try {
+    return await createMailTransport().sendMail(mailOptions);
+  } catch (err) {
+    const errText = `${err.message || ''} ${err.code || ''}`;
+    const certExpired = /certificate has expired|CERT_HAS_EXPIRED/i.test(errText);
+    const ipv6Unreachable = /ENETUNREACH.*:465|network is unreachable/i.test(errText);
+    const allowFallback = !IS_PROD || process.env.SMTP_ALLOW_EXPIRED_CERTS === 'true';
+
+    if (ipv6Unreachable && process.env.SMTP_FAMILY !== '6') {
+      console.warn('SMTP IPv6 route unreachable; retrying Gmail SMTP over IPv4.');
+      return createMailTransport().sendMail(mailOptions);
+    }
+
+    if (!certExpired || !allowFallback) throw err;
+
+    console.warn('SMTP certificate expired; retrying with TLS certificate verification disabled for this email.');
+    return createMailTransport({ allowExpiredCerts: true }).sendMail(mailOptions);
+  }
+}
+
 async function sendReceiptEmail(customer, orderData) {
   if (!isValidEmail(customer.email)) {
     console.log('⚠️  Skipping email — invalid recipient');
@@ -465,14 +673,9 @@ async function sendReceiptEmail(customer, orderData) {
 
   const pdfBuffer = await generateReceiptPDF(customer, orderData);
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: process.env.EMAIL_FROM, pass: process.env.EMAIL_PASS },
-  });
-
   const trackUrl = `${process.env.SITE_URL}/#tracking?order=${orderData.orderId}`;
 
-  await transporter.sendMail({
+  await sendDentallMail({
     from:    `DENTALL 🦷 <${process.env.EMAIL_FROM}>`,
     to:      customer.email,
     subject: `✅ Your DENTALL Order #DNT-${orderData.orderId} — Receipt Enclosed`,
@@ -514,6 +717,103 @@ async function sendReceiptEmail(customer, orderData) {
   });
 
   console.log(`✅ PDF receipt emailed to ${customer.email.replace(/(.{2}).+(@.+)/, '$1****$2')}`);
+}
+
+async function generateWholesalePricingPDF(enquiry) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const chunks = [];
+    doc.on('data', c => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    doc.rect(0, 0, 612, 96).fill('#D30D2D');
+    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(28).text('DENTALL', 50, 28);
+    doc.font('Helvetica').fontSize(11).text('Wholesale Pricing Proposal', 50, 62);
+
+    doc.fillColor('#1f2933').font('Helvetica-Bold').fontSize(16).text('Thank you for your enquiry', 50, 125);
+    doc.font('Helvetica').fontSize(10).fillColor('#4b5563')
+      .text(`Prepared for: ${enquiry.name}`, 50, 152)
+      .text(`Business: ${enquiry.business}`, 50, 168)
+      .text(`Quantity range: ${enquiry.qty}`, 50, 184)
+      .text(`Location: ${enquiry.city}, ${enquiry.state}`, 50, 200);
+
+    doc.rect(50, 238, 512, 28).fill('#1f2933');
+    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(10)
+      .text('Order Slab', 66, 248)
+      .text('Indicative Unit Price', 240, 248)
+      .text('Notes', 390, 248);
+
+    const rows = [
+      ['100 - 499 brushes', 'Rs. 185 - 210', 'Starter wholesale slab'],
+      ['500 - 999 brushes', 'Rs. 160 - 184', 'Better retailer margin'],
+      ['1,000 - 4,999 brushes', 'Rs. 135 - 159', 'Distributor pricing'],
+      ['5,000+ brushes', 'Custom quote', 'Best landed pricing'],
+    ];
+
+    let y = 280;
+    rows.forEach((row, index) => {
+      if (index % 2 === 0) doc.rect(50, y - 8, 512, 32).fill('#fff5f7');
+      doc.fillColor('#1f2933').font('Helvetica').fontSize(10)
+        .text(row[0], 66, y)
+        .text(row[1], 240, y)
+        .text(row[2], 390, y, { width: 150 });
+      y += 36;
+    });
+
+    y += 16;
+    doc.fillColor('#D30D2D').font('Helvetica-Bold').fontSize(13).text('Included benefits', 50, y);
+    y += 24;
+    [
+      'MOQ starts at 100 brushes.',
+      'Custom branding and packaging available for qualifying orders.',
+      'Final quote depends on quantity, branding, delivery location, and tax invoice details.',
+      'Sales team will contact you within 24 hours with a confirmed quotation.',
+    ].forEach(item => {
+      doc.fillColor('#4b5563').font('Helvetica').fontSize(10).text(`- ${item}`, 62, y);
+      y += 18;
+    });
+
+    doc.rect(50, 640, 512, 72).fill('#f3f4f6');
+    doc.fillColor('#1f2933').font('Helvetica-Bold').fontSize(11).text('Next step', 68, 658);
+    doc.font('Helvetica').fontSize(10).fillColor('#4b5563')
+      .text('Reply to this email with GST details, delivery pincode, and preferred quantity for a formal invoice-ready quote.', 68, 678, { width: 470 });
+
+    doc.fillColor('#6b7280').fontSize(8)
+      .text('This PDF contains indicative wholesale pricing only. Taxes, freight, and branding charges may vary.', 50, 762, { align: 'center', width: 512 })
+      .text('DENTALL - support@dentall.in', 50, 778, { align: 'center', width: 512 });
+
+    doc.end();
+  });
+}
+
+async function sendWholesalePricingEmail(enquiry) {
+  if (!isValidEmail(enquiry.email)) return;
+
+  const pdfBuffer = await generateWholesalePricingPDF(enquiry);
+  await sendDentallMail({
+    from: `DENTALL Wholesale <${process.env.EMAIL_FROM}>`,
+    to: enquiry.email,
+    subject: 'DENTALL Wholesale Pricing PDF',
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto">
+        <div style="background:#D30D2D;color:#fff;padding:24px;border-radius:10px 10px 0 0">
+          <h1 style="margin:0;font-size:24px">DENTALL Wholesale</h1>
+          <p style="margin:6px 0 0">Your pricing PDF is attached.</p>
+        </div>
+        <div style="border:1px solid #eee;border-top:0;padding:24px;color:#333;line-height:1.7">
+          <p>Hi ${sanitizeStr(enquiry.name)},</p>
+          <p>Thanks for your wholesale enquiry for <strong>${sanitizeStr(enquiry.business)}</strong>. We have received your requirement for <strong>${sanitizeStr(enquiry.qty)}</strong> brushes.</p>
+          <p>Our sales team will contact you within 24 hours with confirmed pricing, delivery options, and any custom branding details.</p>
+          <p style="font-size:12px;color:#777">The attached PDF contains indicative slabs for quick planning.</p>
+        </div>
+      </div>`,
+    attachments: [{
+      filename: 'DENTALL-Wholesale-Pricing.pdf',
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    }],
+  });
 }
 
 // ============================================================
@@ -656,9 +956,10 @@ app.post('/api/create-order', paymentLimiter, async (req, res) => {
 
   const shippingCharge = safeInt(req.body.shippingCharge, 0, 1000);
 
-  // ── Compute total SERVER-SIDE using catalogue prices ──
-  const subtotal   = cartItems.reduce((sum, i) => sum + i.price * i.qty, 0);
-  const totalPaise = (subtotal + shippingCharge) * 100; // convert to paise
+  // ── Compute total SERVER-SIDE using catalogue prices + live coupon ──
+  const { subtotal, couponCode, discountPercent, discountAmount, total } =
+    computeCartTotal(cartItems, shippingCharge, req.body.couponCode);
+  const totalPaise = total * 100; // convert to paise
 
   if (totalPaise < 100) {
     return res.status(400).json({ error: 'Order amount too small' });
@@ -673,16 +974,20 @@ app.post('/api/create-order', paymentLimiter, async (req, res) => {
         source:         'dentall-web',
         item_count:     cartItems.length,
         shipping_charge: shippingCharge,
+        coupon_code:    couponCode || '',
       },
     });
 
-    console.log(`✅ Razorpay order: ${order.id} | ₹${order.amount / 100}`);
+    console.log(`✅ Razorpay order: ${order.id} | ₹${order.amount / 100}${couponCode ? ` (coupon ${couponCode}, -₹${discountAmount})` : ''}`);
 
     res.json({
       orderId:        order.id,
       amount:         order.amount,
       keyId:          process.env.RAZORPAY_KEY_ID, // safe to expose public key
       computedTotal:  order.amount / 100,           // let client display correct amount
+      couponCode,
+      discountPercent,
+      discountAmount,
     });
   } catch (e) {
     console.error('Razorpay order creation failed:', e);
@@ -707,6 +1012,7 @@ app.post('/api/verify-payment', paymentLimiter, async (req, res) => {
     customerDetails,
     cartItems: rawCartItems,
     shippingCharge: rawShippingCharge,
+    couponCode: rawCouponCode,
   } = req.body;
 
   // ── Basic field presence check ──
@@ -762,8 +1068,9 @@ app.post('/api/verify-payment', paymentLimiter, async (req, res) => {
   }
 
   const shippingCharge = safeInt(rawShippingCharge, 0, 1000);
-  const subtotal       = cartItems.reduce((sum, i) => sum + i.price * i.qty, 0);
-  const expectedPaise  = Math.round((subtotal + shippingCharge) * 100);
+  const { subtotal, couponCode, discountPercent, discountAmount, total } =
+    computeCartTotal(cartItems, shippingCharge, rawCouponCode);
+  const expectedPaise = Math.round(total * 100);
 
   // ── 5. Amount integrity check: server total must match Razorpay order amount ──
   if (rzpOrder.amount !== expectedPaise) {
@@ -812,15 +1119,15 @@ app.post('/api/verify-payment', paymentLimiter, async (req, res) => {
        (razorpay_order_id, razorpay_payment_id,
         customer_name, customer_email, customer_phone,
         customer_address, customer_city, customer_state, customer_pincode,
-        items_json, subtotal, shipping_charge, total, status, created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`,
+        items_json, subtotal, shipping_charge, coupon_code, discount_amount, total, status, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`,
       [
         razorpay_order_id,
         razorpay_payment_id,
         customer.name, customer.email, customer.phone,
         customer.address, customer.city, customer.state, customer.pincode,
         JSON.stringify(cartItems),
-        subtotal, shippingCharge, totalAmount,
+        subtotal, shippingCharge, couponCode, discountAmount, totalAmount,
         'paid',
       ]
     );
@@ -840,7 +1147,7 @@ app.post('/api/verify-payment', paymentLimiter, async (req, res) => {
 
     await db.execute(
       `UPDATE orders SET awb_number = ?, shiprocket_order_id = ? WHERE id = ?`,
-      [awb.awb_code, awb.shipment_id, orderId]
+      [awb.awb_code, awb.shiprocket_order_id || awb.shipment_id, orderId]
     );
     console.log(`✅ Shipment created, AWB: ${awb.awb_code}`);
   } catch (shipErr) {
@@ -945,12 +1252,134 @@ function adminAuthMiddleware(req, res, next) {
   if (!IS_PROD) return next(); // skip in dev for convenience
 
   // In production: validate JWT or session here
-  // Example: if (token !== process.env.ADMIN_SECRET) return res.status(401).json({ error: 'Unauthorized' });
-  if (!token || token !== process.env.ADMIN_SECRET) {
+  if (!token || token !== process.env.DENTALL_ADMIN_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   next();
 }
+
+// ============================================================
+//  ROUTE: GET /api/pricing  (public)
+//  Live price/MRP for the storefront — always reflects the latest
+//  admin-set values, no rebuild/redeploy needed.
+// ============================================================
+app.get('/api/pricing', (req, res) => {
+  const out = {};
+  for (const [id, ref] of Object.entries(PRODUCT_CATALOGUE)) {
+    out[id] = { price: ref.price, mrp: ref.mrp };
+  }
+  res.json(out);
+});
+
+// Lets the admin page verify a token without side effects
+app.get('/api/admin/ping', adminAuthMiddleware, (req, res) => res.json({ ok: true }));
+
+// ============================================================
+//  ROUTE: POST /api/admin/pricing
+//  Updates the price/MRP for a product — both in MySQL (persisted)
+//  and in the live in-memory catalogue (takes effect immediately).
+// ============================================================
+app.post('/api/admin/pricing', adminAuthMiddleware, async (req, res) => {
+  const { productId, price, mrp } = req.body || {};
+
+  if (!PRODUCT_CATALOGUE[productId]) {
+    return res.status(400).json({ error: 'Unknown product' });
+  }
+
+  const newPrice = Number(price);
+  if (!Number.isFinite(newPrice) || newPrice <= 0 || newPrice > 100000) {
+    return res.status(400).json({ error: 'Price must be a number between 1 and 100000' });
+  }
+
+  let newMrp = null;
+  if (mrp !== null && mrp !== undefined && mrp !== '') {
+    newMrp = Number(mrp);
+    if (!Number.isFinite(newMrp) || newMrp < newPrice || newMrp > 100000) {
+      return res.status(400).json({ error: 'MRP must be a number ≥ price (or leave blank to hide the offer badge)' });
+    }
+  }
+
+  try {
+    await db.execute(
+      `INSERT INTO pricing (product_id, price, mrp) VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE price = VALUES(price), mrp = VALUES(mrp)`,
+      [productId, newPrice, newMrp]
+    );
+    PRODUCT_CATALOGUE[productId].price = newPrice;
+    PRODUCT_CATALOGUE[productId].mrp   = newMrp;
+    console.log(`✅ Admin updated pricing: ${productId} → ₹${newPrice}${newMrp ? ` (MRP ₹${newMrp})` : ''}`);
+    res.json({ success: true, productId, price: newPrice, mrp: newMrp });
+  } catch (e) {
+    console.error('Pricing update failed:', e.message);
+    res.status(500).json({ error: 'Could not update pricing.' });
+  }
+});
+
+// ============================================================
+//  ROUTE: POST /api/validate-coupon  (public)
+//  Lets the checkout UI show "Coupon applied" before payment.
+//  This is a convenience check only — /api/create-order and
+//  /api/verify-payment always re-validate the coupon themselves.
+// ============================================================
+app.post('/api/validate-coupon', shippingLimiter, (req, res) => {
+  const { code, discountPercent } = getCouponDiscount(req.body?.code);
+  if (!code) {
+    return res.status(404).json({ valid: false, error: 'Invalid or expired coupon code.' });
+  }
+  res.json({ valid: true, code, discountPercent });
+});
+
+// ============================================================
+//  ROUTE: GET/POST /api/admin/coupons, DELETE /api/admin/coupons/:code
+//  Manage discount codes — changes take effect immediately (in-memory
+//  cache is updated alongside the DB write, same pattern as pricing).
+// ============================================================
+app.get('/api/admin/coupons', adminAuthMiddleware, (req, res) => {
+  const out = Object.entries(COUPONS).map(([code, c]) => ({
+    code, discountPercent: c.discountPercent, active: c.active,
+  }));
+  res.json(out);
+});
+
+app.post('/api/admin/coupons', adminAuthMiddleware, async (req, res) => {
+  const code = String(req.body?.code || '').trim().toUpperCase();
+  const discountPercent = Number(req.body?.discountPercent);
+  const active = req.body?.active !== false;
+
+  if (!/^[A-Z0-9_-]{3,30}$/.test(code)) {
+    return res.status(400).json({ error: 'Code must be 3-30 characters: letters, numbers, - or _' });
+  }
+  if (!Number.isFinite(discountPercent) || discountPercent <= 0 || discountPercent > 90) {
+    return res.status(400).json({ error: 'Discount percent must be a number between 1 and 90' });
+  }
+
+  try {
+    const isNew = !COUPONS[code];
+    await db.execute(
+      `INSERT INTO coupons (code, discount_percent, active) VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE discount_percent = VALUES(discount_percent), active = VALUES(active)`,
+      [code, discountPercent, active]
+    );
+    COUPONS[code] = { discountPercent, active };
+    console.log(`✅ Admin ${isNew ? 'created' : 'updated'} coupon: ${code} → ${discountPercent}% (${active ? 'active' : 'inactive'})`);
+    res.json({ success: true, code, discountPercent, active });
+  } catch (e) {
+    console.error('Coupon update failed:', e.message);
+    res.status(500).json({ error: 'Could not save coupon.' });
+  }
+});
+
+app.delete('/api/admin/coupons/:code', adminAuthMiddleware, async (req, res) => {
+  const code = String(req.params.code || '').trim().toUpperCase();
+  try {
+    await db.execute('DELETE FROM coupons WHERE code = ?', [code]);
+    delete COUPONS[code];
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Coupon delete failed:', e.message);
+    res.status(500).json({ error: 'Could not delete coupon.' });
+  }
+});
 
 app.get('/api/orders', adminAuthMiddleware, async (req, res) => {
   try {
@@ -965,6 +1394,49 @@ app.get('/api/orders', adminAuthMiddleware, async (req, res) => {
     res.json(rows);
   } catch (e) {
     res.status(500).json({ error: 'Could not fetch orders' });
+  }
+});
+
+app.post('/api/wholesale-enquiries', leadLimiter, async (req, res) => {
+  const enquiry = {
+    name: sanitizeStr(req.body?.name, 150),
+    business: sanitizeStr(req.body?.business, 180),
+    email: sanitizeStr(req.body?.email, 150).toLowerCase(),
+    phone: sanitizePhone(req.body?.phone),
+    city: sanitizeStr(req.body?.city, 100),
+    state: sanitizeStr(req.body?.state, 100),
+    qty: sanitizeStr(req.body?.qty, 30),
+    type: sanitizeStr(req.body?.type, 60),
+    message: sanitizeStr(req.body?.message, 1200),
+  };
+
+  const validQtyRanges = new Set(['100-499', '500-999', '1000-4999', '5000+']);
+  if (!enquiry.name) return res.status(400).json({ error: 'Full name is required.' });
+  if (!enquiry.business) return res.status(400).json({ error: 'Business name is required.' });
+  if (!isValidEmail(enquiry.email)) return res.status(400).json({ error: 'Valid email address is required.' });
+  if (!isValidPhone(enquiry.phone)) return res.status(400).json({ error: 'Valid phone number is required.' });
+  if (!enquiry.city) return res.status(400).json({ error: 'City is required.' });
+  if (!enquiry.state) return res.status(400).json({ error: 'State is required.' });
+  if (!validQtyRanges.has(enquiry.qty)) return res.status(400).json({ error: 'Valid quantity range is required.' });
+
+  try {
+    const [result] = await db.execute(
+      `INSERT INTO wholesale_enquiries
+       (full_name, business_name, email, phone, city, state, quantity_range, business_type, message, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`,
+      [enquiry.name, enquiry.business, enquiry.email, enquiry.phone, enquiry.city, enquiry.state, enquiry.qty, enquiry.type, enquiry.message]
+    );
+
+    try {
+      await sendWholesalePricingEmail(enquiry);
+    } catch (mailErr) {
+      console.error('Wholesale pricing email failed:', mailErr.message);
+    }
+
+    res.json({ success: true, enquiryId: result.insertId });
+  } catch (e) {
+    console.error('Wholesale enquiry failed:', e.message);
+    res.status(500).json({ error: 'Could not save wholesale enquiry. Please try again.' });
   }
 });
 
@@ -994,12 +1466,7 @@ app.post('/api/capture-lead', leadLimiter, async (req, res) => {
 
   // Send offer email (non-blocking)
   try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: process.env.EMAIL_FROM, pass: process.env.EMAIL_PASS },
-    });
-
-    await transporter.sendMail({
+    await sendDentallMail({
       from:    `DENTALL 🦷 <${process.env.EMAIL_FROM}>`,
       to:      email,
       subject: '🦷 Special Offer Just for You — 10% Off Your First DENTALL Order!',
@@ -1027,7 +1494,7 @@ app.post('/api/capture-lead', leadLimiter, async (req, res) => {
             </a>
           </div>
           <p style="color:#8A6040;font-size:.78rem;text-align:center;line-height:1.7">
-            ⏰ Offer valid for 48 hours · 🔒 Razorpay secured · 🚚 Free shipping on family pack
+            ⏰ Offer valid for 48 hours · 🔒 Razorpay secured
           </p>
         </div>
         <div style="background:#F5EDDC;padding:1rem;text-align:center;font-size:.72rem;color:#8A6040;border-radius:0 0 12px 12px">
@@ -1068,13 +1535,10 @@ app.post('/api/reviews', reviewLimiter, async (req, res) => {
 
   console.log(`   name="${name}" email="${email}" rating=${rating} text="${text?.slice(0,40)}..."`);
 
-  if (!name)   return res.status(400).json({ error: 'Name is required.' });
-  if (!email)  return res.status(400).json({ error: 'Email is required.' });
-  if (!text)   return res.status(400).json({ error: 'Review text is required.' });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    return res.status(400).json({ error: 'Invalid email address.' });
-  if (rating < 1 || rating > 5)
-    return res.status(400).json({ error: 'Rating must be between 1 and 5.' });
+  if (!name || name.length < 2)   return res.status(400).json({ error: 'Name must be at least 2 characters.' });
+  if (!isValidEmail(email))        return res.status(400).json({ error: 'Invalid email address.' });
+  if (!text || text.length < 10)   return res.status(400).json({ error: 'Review must be at least 10 characters.' });
+  if (rating < 1 || rating > 5)    return res.status(400).json({ error: 'Rating must be between 1 and 5.' });
 
   try {
     const [result] = await db.execute(
@@ -1126,7 +1590,7 @@ app.use((err, req, res, _next) => {
 
 // ── Catch-all: serve React SPA for all non-API routes ──
 app.use((req, res) => {
-  res.sendFile(path.join(__dirname, '../dist', 'index.html'));
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // ============================================================

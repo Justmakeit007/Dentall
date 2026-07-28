@@ -1,0 +1,49 @@
+/* ══════════════════════════════════════════════════════════════
+   DENTALL MAIN CSS INDEX
+   Import all component styles from separate files
+   ══════════════════════════════════════════════════════════════ */
+
+/* Global Theme & Animations */
+@import './theme.css';
+
+/* Navigation */
+@import './navigation.css';
+
+/* Hero Section */
+@import './hero.css';
+
+/* Features & Capabilities */
+@import './features.css';
+
+/* Products & Orders */
+@import './products.css';
+
+/* Reviews & Social */
+@import './reviews.css';
+
+/* Patients & Conditions */
+@import './patients.css';
+
+/* Video Section */
+@import './video.css';
+
+/* Scroll Stage & Animations */
+@import './scroll.css';
+
+/* Cart Shopping */
+@import './cart.css';
+
+/* Payment & Checkout */
+@import './payment.css';
+
+/* Tracking & Misc */
+@import './tracking.css';
+
+/* Admin */
+@import './admin.css';
+
+/* Footer & Forms */
+@import './footer.css';
+
+/* Shipment Page */
+@import './shipment.css';

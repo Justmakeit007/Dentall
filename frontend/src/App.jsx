@@ -1083,6 +1083,9 @@ export default function DentallApp() {
           <span className="dn-logo-tagline">a quality product from Brooks &amp; Meadows</span>
         </div>
         <div className="dn-footer-copy">© 2025 Dentall. All rights reserved.</div>
+        <div className="dn-footer-credit">
+          designed by justmakeit · <a href="mailto:justmakeit654@gmail.com">justmakeit654@gmail.com</a>
+        </div>
         <div className="dn-footer-social">
           <a href="https://wa.me/919999999999?text=Hi%20DENTALL%20team%2C%20I%20have%20a%20question%20about%20your%20product" target="_blank" rel="noopener noreferrer" aria-label="Chat with Dentall on WhatsApp">
             <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="dn-footer-social-icon" />

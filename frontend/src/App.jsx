@@ -6,6 +6,8 @@ import ShipmentPage from "./components/ShipmentPage";
 import TrackingSection from "./components/TrackingSection";
 import videoThumbnail from "./assets/dentall-video-thumbnail1.png";
 import {
+  discountPercent,
+  FAMILY_PACK_MRP,
   FAMILY_PACK_PRICE,
   FEATURES,
   INDIA_STATES,
@@ -14,7 +16,6 @@ import {
   PHASES,
   PRODUCTS,
   REVIEWS,
-  SINGLE_PRICE,
 } from "./data/dentallData";
 import { clamp, easeInOut, lerp } from "./utils/math";
 /* ─── Validation helpers ─────────────────────────────────────── */
@@ -39,8 +40,6 @@ export default function DentallApp() {
   const featRefs = useRef([]);
   const [featVisible, setFeatVisible] = useState(Array(4).fill(false));
 
-  const [selectedPack, setSelectedPack] = useState('family');
-  const [qty, setQty]     = useState(1);
   const [form, setForm]   = useState({ fname:'', lname:'', email:'', phone:'', address:'', city:'', state:'', pincode:'' });
   const [errors, setErrors] = useState({});
   const [toast, setToast]   = useState({ show:false, msg:'' });
@@ -89,16 +88,69 @@ export default function DentallApp() {
 
   useEffect(() => { fetchReviews(); }, []);
 
+  /* ── Live pricing (admin-editable — falls back to build-time constants) ── */
+  const [livePricing, setLivePricing] = useState({
+    'family-pack': { price: FAMILY_PACK_PRICE, mrp: FAMILY_PACK_MRP },
+  });
+  useEffect(() => {
+    fetch('/api/pricing')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setLivePricing(prev => ({ ...prev, ...data })); })
+      .catch(() => {});
+  }, []);
+  const familyPackPrice = livePricing['family-pack'].price;
+  const familyPackMrp   = livePricing['family-pack'].mrp;
+  const products = PRODUCTS.map(p =>
+    livePricing[p.id] ? { ...p, price: livePricing[p.id].price, mrp: livePricing[p.id].mrp } : p
+  );
+
   /* ── Modal pincode (in payment modal) ── */
   const [modalShipping, setModalShipping]       = useState(null);
   const [modalShipLoading, setModalShipLoading] = useState(false);
   const [checkoutStep, setCheckoutStep]         = useState(1);
 
-  const packPrice = selectedPack === 'family' ? FAMILY_PACK_PRICE : SINGLE_PRICE;
+  /* ── Coupon ── */
+  const [couponInput, setCouponInput]     = useState('');
+  const [coupon, setCoupon]               = useState(null); // { code, discountPercent }
+  const [couponChecking, setCouponChecking] = useState(false);
+  const [couponError, setCouponError]     = useState('');
+
+  const applyCoupon = async () => {
+    const code = couponInput.trim();
+    if (!code) return;
+    setCouponChecking(true);
+    setCouponError('');
+    try {
+      const res  = await fetch('/api/validate-coupon', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        setCoupon(null);
+        setCouponError(data.error || 'Invalid or expired coupon code.');
+      } else {
+        setCoupon({ code: data.code, discountPercent: data.discountPercent });
+      }
+    } catch {
+      setCoupon(null);
+      setCouponError('Could not verify coupon. Please try again.');
+    } finally {
+      setCouponChecking(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setCoupon(null);
+    setCouponInput('');
+    setCouponError('');
+  };
+
   const cartSubtotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
   const cartShipping = modalShipping?.charge ?? 0;
-  const cartTotal    = cartSubtotal + cartShipping;
-  const orderTotal   = packPrice * qty;
+  const cartDiscount = coupon ? Math.round(cartSubtotal * coupon.discountPercent) / 100 : 0;
+  const cartTotal    = cartSubtotal - cartDiscount + cartShipping;
 
 
   /* ── Load Razorpay script once ── */
@@ -343,6 +395,7 @@ export default function DentallApp() {
       body: JSON.stringify({
         cartItems,                                  // server re-validates these
         shippingCharge: modalShipping?.charge ?? 0, // server caps this safely
+        couponCode: coupon?.code,                   // server re-validates this too
       }),
     });
  
@@ -403,8 +456,9 @@ export default function DentallApp() {
               },
               cartItems,
               shippingCharge: modalShipping?.charge ?? 0,
+              couponCode: coupon?.code,
               // NOTE: totalAmount is NOT sent — server computes it from
-              // cartItems + shippingCharge using its own catalogue prices.
+              // cartItems + shippingCharge + couponCode using its own catalogue prices.
             }),
           });
  
@@ -460,30 +514,6 @@ export default function DentallApp() {
     setPayProcessing(false);
     setModalShipping(null);
     setCheckoutStep(1);
-  };
-
-  /* ── Order form (direct, not cart) ── */
-  const changeQty   = d => setQty(q => Math.max(1, Math.min(10, q + d)));
-  const handleField = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-
-  const placeOrder = () => {
-    const errs = {};
-    ['fname','address','city','state'].forEach(k => { if (!form[k].trim()) errs[k] = 'Required'; });
-    if (!form.fname.trim() || form.fname.trim().length < 2) errs.fname = 'Enter your first name';
-    if (!isValidEmail(form.email)) errs.email = 'Enter a valid email address';
-    if (!isValidPhone(form.phone)) errs.phone = 'Enter a valid 10-digit mobile number';
-    if (!form.address.trim()) errs.address = 'Required';
-    if (!form.city.trim()) errs.city = 'Required';
-    if (!form.state) errs.state = 'Required';
-    setErrors(errs);
-    if (Object.keys(errs).length) return;
-    // Add to cart and open payment
-    const item = selectedPack === 'family'
-      ? { id:'family-pack', name:'Family Pack (12 brushes)', price: FAMILY_PACK_PRICE, icon:'🦷' }
-      : { id:'single-brush', name:'Single Brush',            price: SINGLE_PRICE,      icon:'🪥' };
-    // Add qty copies
-    setCartItems([{ ...item, qty }]);
-    setShowPayment(true);
   };
 
   const scrollTo = id => {
@@ -601,7 +631,7 @@ export default function DentallApp() {
         <button className="dn-cart-btn" style={{fontSize:'1rem',padding:'.8rem 2rem'}} onClick={()=>{setDrawerOpen(false);setCartOpen(true);}}>
           🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
         </button>
-        <button className="dn-nav-cta" onClick={()=>scrollTo('order')}>Family Pack — ₹599</button>
+        <button className="dn-nav-cta" onClick={()=>scrollTo('order')}>Family Pack — ₹{familyPackPrice}</button>
       </div>
 
       {/* ── Hero ── */}
@@ -610,9 +640,9 @@ export default function DentallApp() {
   <div className="dn-hero-content">
     <div className="dn-hero-tag">Professional Dental Care</div>
     <h1 className="dn-h1">Brush with<br/><em>Confidence</em><br/>Every Day.</h1>
-    <p className="dn-hero-sub">DENTALL's precision-engineered bristle system and ergonomic grip deliver a dentist-quality clean — every single morning. Starting at just ₹49 per brush.</p>
+    <p className="dn-hero-sub">DENTALL's precision-engineered bristle system and ergonomic grip deliver a dentist-quality clean — every single morning. Just ₹{Math.round(familyPackPrice / 12)} per brush with the Family Pack.</p>
     <div className="dn-hero-ctas">
-      <button className="dn-btn-primary" onClick={()=>scrollTo('order')}>Shop Now — from ₹599</button>
+      <button className="dn-btn-primary" onClick={()=>scrollTo('order')}>Shop Now — from ₹{familyPackPrice}</button>
       <button className="dn-btn-ghost"   onClick={()=>scrollTo('scroll-stage')}>Explore Features</button>
     </div>
   </div>
@@ -640,7 +670,7 @@ export default function DentallApp() {
               Our Family Pack of <strong style={{color:'#fff'}}>12 brushes</strong> covers a family of 4 for a full year — no reordering, no forgetting.
             </p>
             <div className="dn-pack-perks" style={{marginTop:'1.5rem'}}>
-              {['12 brushes in one box','Covers 4 people × 12 months','Change every 3 months','Free shipping included','Never run out mid-year'].map(p=>(
+              {['12 brushes in one box','Covers 4 people × 12 months','Change every 3 months','Never run out mid-year'].map(p=>(
                 <div key={p} className="dn-pack-perk"><div className="dn-pack-perk-dot"/> {p}</div>
               ))}
             </div>
@@ -657,13 +687,13 @@ export default function DentallApp() {
           </div>
           <div>
             <div className="dn-pack-math">
-              <div className="dn-pack-math-row"><span>Per brush</span><strong>₹50</strong></div>
-              <div className="dn-pack-math-row"><span>Family pack (12 brushes)</span><strong>₹599</strong></div>
+              <div className="dn-pack-math-row"><span>Per brush</span><strong>₹{Math.round(familyPackPrice / 12)}</strong></div>
+              <div className="dn-pack-math-row"><span>Family pack (12 brushes)</span><strong>₹{familyPackPrice}</strong></div>
               {/* <div className="dn-pack-math-row"><span>Per person per year</span><strong>₹150</strong></div> */}
               <div className="dn-pack-math-divider"/>
               <div className="dn-pack-math-total">
                 <div className="dn-pack-math-total-label">Family pack total</div>
-                <div className="dn-pack-math-price">₹599 <span>/ year</span></div>
+                <div className="dn-pack-math-price">₹{familyPackPrice} <span>/ year</span></div>
               </div>
               <button className="dn-submit-btn" style={{margin:'1rem 0 0',fontSize:'.82rem'}} onClick={()=>scrollTo('order')}>Order Family Pack →</button>
               <button className="dn-add-cart-btn" style={{background:'rgba(255,255,255,.1)',borderColor:'rgba(255,255,255,.4)',color:'#fff',marginTop:'.6rem'}}
@@ -935,9 +965,9 @@ export default function DentallApp() {
         <div className="dn-order-header">
           <div className="dn-section-label">Ready to upgrade?</div>
           <div className="dn-order-title">Choose your pack. <em>Start smiling better.</em></div>
-          <div className="dn-order-desc" style={{maxWidth:520,margin:'0 auto .6rem'}}>Free shipping across India · 30-day return guarantee · Razorpay secured</div>
+          <div className="dn-order-desc" style={{maxWidth:520,margin:'0 auto .6rem'}}>Razorpay secured</div>
           <div className="dn-order-perk-chips">
-            {['✓ Dentist recommended','✓ 12K+ happy customers','✓ Change every 3 months','✓ BPA-free materials','✓ Free shipping'].map(c=>(
+            {['✓ Dentist recommended','✓ 12K+ happy customers','✓ Change every 3 months','✓ BPA-free materials'].map(c=>(
               <span key={c} className="dn-order-perk-chip">{c}</span>
             ))}
           </div>
@@ -945,15 +975,23 @@ export default function DentallApp() {
 
         {/* Big product cards */}
         <div className="dn-products-big-grid">
-          {PRODUCTS.map(p => (
+          {products.map(p => (
             <div key={p.id} className={`dn-big-card ${p.badge==='Best Value'?'featured':''} ${p.id==='wholesale'?'wholesale':''}`}>
               {p.badge && <div className="dn-big-card-ribbon">{p.badge}</div>}
+              {p.mrp > p.price && <div className="dn-big-card-offer">{discountPercent(p.mrp, p.price)}% OFF</div>}
               <div className="dn-big-card-icon">{p.icon}</div>
               <div className="dn-big-card-name">{p.name}</div>
               <div className="dn-big-card-sub">{p.sub}</div>
-              <div className="dn-big-card-price">₹{p.price.toLocaleString('en-IN')}</div>
+              <div className="dn-big-card-price">
+                {p.mrp > p.price && (
+                  <span style={{ textDecoration: 'line-through', opacity: .5, fontSize: '.65em', marginRight: '.4em' }}>
+                    ₹{p.mrp.toLocaleString('en-IN')}
+                  </span>
+                )}
+                ₹{p.price.toLocaleString('en-IN')}
+              </div>
               <div className="dn-big-card-price-note">
-                {p.id==='family-pack' ? '≈ ₹599/year' : p.id==='kids-brush' ? 'Ultra-soft for ages 3–12' : 'Single brush · 4-month use'}
+                {p.id==='family-pack' ? `≈ ₹${familyPackPrice}/year` : p.id==='kids-brush' ? 'Ultra-soft for ages 3–12' : 'Single brush · 4-month use'}
               </div>
               <div className="dn-big-card-divider"/>
               <div className="dn-big-card-perks">
@@ -1087,10 +1125,10 @@ export default function DentallApp() {
           designed by justmakeit · <a href="mailto:justmakeit654@gmail.com">justmakeit654@gmail.com</a>
         </div>
         <div className="dn-footer-social">
-          <a href="https://wa.me/919999999999?text=Hi%20DENTALL%20team%2C%20I%20have%20a%20question%20about%20your%20product" target="_blank" rel="noopener noreferrer" aria-label="Chat with Dentall on WhatsApp">
+          <a href="https://wa.me/919489127937?text=Hi%20DENTALL%20team%2C%20a%20client%20is%20checking%20out%20your%20product%20and%20has%20a%20question" target="_blank" rel="noopener noreferrer" aria-label="Chat with Dentall on WhatsApp">
             <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="dn-footer-social-icon" />
           </a>
-          <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Visit Dentall on Instagram">
+          <a href="https://www.instagram.com/den_tall001/" target="_blank" rel="noopener noreferrer" aria-label="Visit Dentall on Instagram">
             <img src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png" alt="Instagram" className="dn-footer-social-icon" />
           </a>
         </div>
@@ -1325,6 +1363,12 @@ export default function DentallApp() {
                           {modalShipping?.charge === 0 ? 'FREE' : `₹${modalShipping?.charge ?? 0}`}
                         </span>
                       </div>
+                      {coupon && (
+                        <div className="dn-pay-summary-row">
+                          <span>Discount ({coupon.code}, {coupon.discountPercent}% off)</span>
+                          <span style={{ color: '#16a34a', fontWeight: 600 }}>−₹{cartDiscount.toLocaleString('en-IN')}</span>
+                        </div>
+                      )}
                       <div className="dn-pay-summary-row">
                         <span style={{fontSize:'.78rem',color:'var(--text-mid)'}}>Delivering to</span>
                         <span style={{fontSize:'.78rem',color:'var(--text-mid)'}}>{form.city}, {form.state} – {form.pincode}</span>
@@ -1333,6 +1377,35 @@ export default function DentallApp() {
                         <span>Total</span>
                         <span>₹{cartTotal.toLocaleString('en-IN')}</span>
                       </div>
+                    </div>
+
+                    {/* Coupon code */}
+                    <div style={{ marginTop: '1rem' }}>
+                      {coupon ? (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '.6rem .9rem', background: 'rgba(22,163,74,.08)', borderRadius: 6 }}>
+                          <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '.85rem' }}>✓ {coupon.code} applied</span>
+                          <button type="button" onClick={removeCoupon} style={{ background: 'none', border: 'none', color: 'var(--text-light)', fontSize: '.78rem', cursor: 'pointer', textDecoration: 'underline' }}>Remove</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '.6rem' }}>
+                          <input
+                            value={couponInput}
+                            onChange={e => setCouponInput(e.target.value.toUpperCase())}
+                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), applyCoupon())}
+                            placeholder="Have a coupon code?"
+                            style={{ flex: 1, padding: '0 .9rem', border: '1px solid var(--border-mid)', borderRadius: 4, fontSize: '.85rem' }}
+                          />
+                          <button
+                            type="button"
+                            className="dn-back-btn"
+                            onClick={applyCoupon}
+                            disabled={couponChecking || !couponInput.trim()}
+                          >
+                            {couponChecking ? '…' : 'Apply'}
+                          </button>
+                        </div>
+                      )}
+                      {couponError && <div style={{ color: '#e53935', fontSize: '.78rem', marginTop: '.5rem' }}>{couponError}</div>}
                     </div>
 
                     <p style={{fontSize:'.82rem',color:'var(--text-mid)',lineHeight:1.6,margin:'1rem 0'}}>

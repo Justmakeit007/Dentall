@@ -112,18 +112,31 @@
   border-color: color-mix(in srgb, var(--secondary) 34%, transparent);
 }
 
-.dn-big-card-ribbon { 
-  position: absolute; 
-  top: 0; 
-  right: 0; 
-  background: var(--primary); 
-  color: #fff; 
-  font-size: 0.52rem; 
-  font-weight: 700; 
-  letter-spacing: 0.1em; 
-  text-transform: uppercase; 
-  padding: 0.28rem 0.8rem; 
-  border-radius: 0 16px 0 10px; 
+.dn-big-card-ribbon {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.8rem;
+  border-radius: 0 16px 0 10px;
+}
+
+.dn-big-card-offer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: #e53935;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.28rem 0.8rem;
+  border-radius: 16px 0 10px 0;
 }
 
 .dn-big-card-icon { 

@@ -1,6 +1,22 @@
 /* ─── CONSTANTS ────────────────────────────────────────────────── */
-export const SINGLE_PRICE    = 49;
+// Selling price shown to customers and charged at checkout.
+// ⚠️ Must always match the CATALOG price in backend/server.js (STEP 2) —
+// that file is the real charge amount; this one is display only.
 export const FAMILY_PACK_PRICE = 599;
+
+// Optional "was" price for a strike-through + auto "% OFF" badge.
+// Set to null to hide the offer badge (no sale running).
+export const FAMILY_PACK_MRP = null;
+
+// Auto-calculates the discount % from MRP vs selling price — no manual math.
+export const discountPercent = (mrp, price) =>
+  mrp && mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
+
+// Google Business Profile review link — fill in PLACE_ID once the listing
+// is verified (business.google.com), then flip ENABLED to true to show the
+// "Leave us a review on Google" button after a review is submitted.
+export const GOOGLE_REVIEW_ENABLED = false;
+export const GOOGLE_PLACE_ID = '';
 // const RAZORPAY_KEY_ID = "rzp_test_SlG1HvlDp3i5Fw"; // ← replace with your key
 
 export const FEATURES = [
@@ -37,8 +53,9 @@ export const PRODUCTS = [
     name:  'Family Pack',
     sub:   '12 brushes · 1 year · 4 people',
     price: FAMILY_PACK_PRICE,
+    mrp:   FAMILY_PACK_MRP,
     badge: 'Best Value',
-    perks: ['Covers a family of 4', 'Change every 4 months', 'Free shipping'],
+    perks: ['Covers a family of 4', 'Change every 4 months'],
   },
   {
     id:    'wholesale',

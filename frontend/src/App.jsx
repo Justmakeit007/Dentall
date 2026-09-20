@@ -3,7 +3,6 @@ import "./styles/index.css";
 import BrushColorShowcase from "./components/BrushColorShowcase";
 import ReviewFormSection from "./components/ReviewFormSection";
 import ShipmentPage from "./components/ShipmentPage";
-import TrackingSection from "./components/TrackingSection";
 import videoThumbnail from "./assets/dentall-video-thumbnail1.png";
 import {
   discountPercent,
@@ -76,7 +75,9 @@ export default function DentallApp() {
   const [payProcessing, setPayProcessing] = useState(false);
   const [paySuccess, setPaySuccess]       = useState(false);
   const [successOrder, setSuccessOrder]   = useState({ orderId:'', awb:'' });
-  const [showShipment, setShowShipment]   = useState(false);
+  // Open the shipment page straight away for links like  /#shipment?order=42  (receipt email)
+  const [showShipment, setShowShipment]   = useState(() => /^#(shipment|tracking)/.test(window.location.hash));
+  const [shipmentOrderId, setShipmentOrderId] = useState('');
   const [dbReviews, setDbReviews]         = useState([]);
 
   const fetchReviews = () => {
@@ -608,7 +609,7 @@ export default function DentallApp() {
           <a href="#features-grid" onClick={e=>{e.preventDefault();scrollTo('features-grid')}}>Features</a>
           <a href="#social"        onClick={e=>{e.preventDefault();scrollTo('social')}}>Reviews</a>
           {/* <a href="#tracking"      onClick={e=>{e.preventDefault();scrollTo('tracking')}}>Track</a> */}
-          <a href="#shipment"      onClick={e=>{e.preventDefault();setShowShipment(true);}}>Shipment</a>
+          <a href="#shipment"      onClick={e=>{e.preventDefault();setShipmentOrderId('');setShowShipment(true);}}>Shipment</a>
           <button className="dn-cart-btn" onClick={()=>setCartOpen(o=>!o)}>
             🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
           </button>
@@ -625,7 +626,7 @@ export default function DentallApp() {
         <a href="#features-grid" onClick={e=>{e.preventDefault();scrollTo('features-grid')}}>Features</a>
         <a href="#social"        onClick={e=>{e.preventDefault();scrollTo('social')}}>Reviews</a>
         {/* <a href="#tracking"      onClick={e=>{e.preventDefault();scrollTo('tracking')}}>Track Order</a> */}
-        <a href="#shipment"      onClick={e=>{e.preventDefault();setShowShipment(true);setDrawerOpen(false);}}>Shipment</a>
+        <a href="#shipment"      onClick={e=>{e.preventDefault();setShipmentOrderId('');setShowShipment(true);setDrawerOpen(false);}}>Shipment</a>
         <a href="#order"         onClick={e=>{e.preventDefault();scrollTo('order')}}>Order</a>
         <button className="dn-cart-btn" style={{fontSize:'1rem',padding:'.8rem 2rem'}} onClick={()=>{setDrawerOpen(false);setCartOpen(true);}}>
           🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
@@ -1111,8 +1112,6 @@ export default function DentallApp() {
         </div>
       )}
 
-      <TrackingSection />
-
       {/* ── Footer ── */}
       <footer className="dn-footer">
         <div>
@@ -1159,7 +1158,7 @@ export default function DentallApp() {
                     </div>
                   </div>
                 )}
-                <button className="dn-pay-done-btn" onClick={()=>{closePayment();setShowShipment(true);}}>View Shipment Details →</button>
+                <button className="dn-pay-done-btn" onClick={()=>{closePayment();setShipmentOrderId(String(successOrder.orderId));setShowShipment(true);}}>View Shipment Details →</button>
               </div>
             ) : (
               <div className="dn-pay-body">
@@ -1441,7 +1440,18 @@ export default function DentallApp() {
       )}
 
       {/* ── Shipment Page ── */}
-      {showShipment && <ShipmentPage onClose={() => setShowShipment(false)} />}
+      {showShipment && (
+        <ShipmentPage
+          initialOrderId={shipmentOrderId}
+          onClose={() => {
+            setShowShipment(false);
+            setShipmentOrderId('');
+            if (/^#(shipment|tracking)/.test(window.location.hash)) {
+              window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            }
+          }}
+        />
+      )}
 
     </>
   );

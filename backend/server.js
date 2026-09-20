@@ -747,7 +747,7 @@ async function sendReceiptEmail(customer, orderData) {
 
   const pdfBuffer = await generateReceiptPDF(customer, orderData);
 
-  const trackUrl = `${process.env.SITE_URL}/#tracking?order=${orderData.orderId}`;
+  const trackUrl = `${process.env.SITE_URL}/#shipment?order=${orderData.orderId}`;
 
   await sendDentallMail({
     from:    `DENTALL 🦷 <${process.env.EMAIL_FROM}>`,
@@ -1223,6 +1223,66 @@ app.post('/api/verify-payment', paymentLimiter, async (req, res) => {
 });
 
 // ============================================================
+//  TRACKING helpers
+//  Shiprocket's track response is nested (numeric shipment_status, courier and
+//  AWB inside shipment_track[0], events in shipment_track_activities). The
+//  storefront expects one flat shape, so every tracking route goes through
+//  normalizeTracking() — real and mock data alike.
+// ============================================================
+function normalizeTracking(raw, { awb = null } = {}) {
+  const t          = raw || {};
+  const trk        = Array.isArray(t.shipment_track) ? t.shipment_track[0] : null;
+  const activities = Array.isArray(t.shipment_track_activities) ? t.shipment_track_activities
+                   : Array.isArray(t.tracking_data)             ? t.tracking_data
+                   : [];
+  const statusText = trk?.current_status
+                  || (typeof t.shipment_status === 'string' ? t.shipment_status : '');
+  return {
+    shipment_status: String(statusText || (awb ? 'AWB ASSIGNED' : 'PROCESSING')).toUpperCase(),
+    awb_code:        trk?.awb_code || t.awb_code || awb || null,
+    courier_name:    trk?.courier_name || t.courier_name || null,
+    etd:             t.etd || trk?.edd || null,
+    track_url:       t.track_url || null,
+    tracking_data:   activities.map(a => ({
+      activity: a.activity || a.status || a['sr-status-label'] || '',
+      date:     a.date || '',
+      location: a.location || '',
+    })),
+  };
+}
+
+// Shipment that has not been booked with a courier yet (e.g. Shiprocket was down at checkout)
+function pendingShipmentTracking() {
+  return {
+    shipment_status: 'PROCESSING',
+    awb_code:        null,
+    courier_name:    null,
+    etd:             null,
+    track_url:       null,
+    tracking_data:   [],
+    message:         'Your order is confirmed and your shipment is being prepared. Tracking will appear here once the courier picks it up.',
+  };
+}
+
+// Fetch + normalise live tracking for an AWB. A courier that has no scans yet
+// makes Shiprocket answer with an empty/error body — that is "AWB ASSIGNED", not a failure.
+async function fetchShiprocketTracking(awb) {
+  try {
+    const token    = await getShiprocketToken();
+    const { data } = await axios.get(
+      `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
+      { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }
+    );
+    return normalizeTracking(data?.tracking_data, { awb });
+  } catch (e) {
+    if (e.response?.status === 404 || e.response?.status === 400) {
+      return normalizeTracking({}, { awb });
+    }
+    throw e;
+  }
+}
+
+// ============================================================
 //  ROUTE: GET /api/track/:orderId
 //  Returns live shipment tracking for an order.
 // ============================================================
@@ -1239,33 +1299,29 @@ app.get('/api/track/:orderId', async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    const { awb_number, status, customer_name, created_at } = rows[0];
+    const { awb_number, customer_name, created_at } = rows[0];
+    const base = {
+      order_id:      orderId,
+      // first name only — order IDs are sequential, so don't expose full names
+      customer_name: String(customer_name || '').trim().split(/\s+/)[0] || null,
+      order_date:    created_at,
+    };
 
-    if (USE_MOCK || !awb_number || awb_number.startsWith('TEST-') || awb_number.startsWith('PENDING-')) {
+    if (USE_MOCK || (awb_number && awb_number.startsWith('TEST-'))) {
       return res.json({
-        ...mockTrackingData(awb_number || String(orderId), orderId),
-        order_id:     orderId,
-        customer_name,
-        order_date:   created_at,
+        ...normalizeTracking(mockTrackingData(awb_number || String(orderId), orderId), { awb: awb_number }),
+        ...base,
       });
     }
 
-    // ── REAL SHIPROCKET ──
-    const token    = await getShiprocketToken();
-    const { data } = await axios.get(
-      `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb_number}`,
-      { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }
-    );
+    if (!awb_number || awb_number.startsWith('PENDING-')) {
+      return res.json({ ...pendingShipmentTracking(), ...base });
+    }
 
-    res.json({
-      ...data.tracking_data,
-      order_id:     orderId,
-      customer_name,
-      order_date:   created_at,
-    });
+    res.json({ ...(await fetchShiprocketTracking(awb_number)), ...base });
   } catch (e) {
     console.error('Tracking error:', e.response?.data || e.message);
-    res.status(500).json({ error: 'Could not fetch tracking information' });
+    res.status(500).json({ error: 'Could not fetch tracking information. Please try again shortly.' });
   }
 });
 
@@ -1278,16 +1334,15 @@ app.get('/api/shipment/awb/:awbNumber', async (req, res) => {
   if (!awb) return res.status(400).json({ error: 'Invalid AWB number' });
 
   if (USE_MOCK) {
-    return res.json(mockTrackingData(awb, 'N/A'));
+    return res.json(normalizeTracking(mockTrackingData(awb, 'N/A'), { awb }));
+  }
+
+  if (awb.startsWith('PENDING-')) {
+    return res.json(pendingShipmentTracking());
   }
 
   try {
-    const token    = await getShiprocketToken();
-    const { data } = await axios.get(
-      `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
-      { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }
-    );
-    res.json(data.tracking_data || {});
+    res.json(await fetchShiprocketTracking(awb));
   } catch (e) {
     console.error('AWB tracking error:', e.response?.data || e.message);
     res.status(500).json({ error: 'Could not fetch tracking info for this AWB' });

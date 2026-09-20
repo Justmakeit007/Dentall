@@ -1,53 +1,70 @@
 import React, { useEffect, useState } from "react";
 
 /* ─── SHIPMENT DETAILS PAGE ───────────────────────────────────── */
-export default function ShipmentPage({ onClose }) {
+const STATUS_STEPS = ['Ordered', 'Picked up', 'In transit', 'Out for delivery', 'Delivered'];
+
+// Map a courier status string to a progress step. Couriers use many wordings
+// ("PICKED UP", "REACHED AT DESTINATION HUB"…), so match on keywords.
+function stepForStatus(status) {
+  const s = String(status || '').toUpperCase();
+  if (/RTO|RETURN|CANCEL|UNDELIVERED/.test(s)) return 0;
+  if (s.includes('OUT FOR DELIVERY'))          return 3;
+  if (s.includes('DELIVERED'))                 return 4;
+  if (/TRANSIT|SHIPPED|REACHED|HUB|DISPATCH/.test(s)) return 2;
+  if (/PICK/.test(s))                          return 1;
+  return 0;
+}
+
+// Read the server's error message instead of showing a misleading generic one
+async function readError(res, fallback) {
+  const body = await res.json().catch(() => ({}));
+  return body.error || fallback;
+}
+
+export default function ShipmentPage({ onClose, initialOrderId = '' }) {
   const [awbInput, setAwbInput]     = useState('');
   const [orderInput, setOrderInput] = useState('');
   const [data, setData]             = useState(null);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
 
-  useEffect(() => {
-    const hash      = window.location.hash;
-    const queryPart = hash.includes('?') ? hash.split('?')[1] : '';
-    const params    = new URLSearchParams(queryPart);
-    const awb       = params.get('awb');
-    const order     = params.get('order');
-    if (awb)   { setAwbInput(awb);     fetchByAWB(awb); }
-    if (order) { setOrderInput(order); fetchByOrder(order); }
-  }, []);
-
   const fetchByOrder = async (id) => {
     if (!id) return;
     setLoading(true); setError(''); setData(null);
     try {
-      const res = await fetch(`/api/track/${id}`);
-      if (!res.ok) throw new Error('Order not found');
+      const res = await fetch(`/api/track/${encodeURIComponent(id)}`);
+      if (!res.ok) throw new Error(await readError(res, 'Could not fetch shipment details.'));
       setData(await res.json());
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
+    } catch (e) {
+      setError(e instanceof TypeError ? 'Network error. Please check your connection and try again.' : e.message);
+    } finally { setLoading(false); }
   };
 
   const fetchByAWB = async (awb) => {
     if (!awb) return;
     setLoading(true); setError(''); setData(null);
     try {
-      const res = await fetch(`/api/shipment/awb/${encodeURIComponent(awb)}`);
-      if (!res.ok) throw new Error('Shipment not found');
+      const res = await fetch(`/api/shipment/awb/${encodeURIComponent(awb.trim())}`);
+      if (!res.ok) throw new Error(await readError(res, 'Could not fetch shipment details.'));
       setData(await res.json());
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
+    } catch (e) {
+      setError(e instanceof TypeError ? 'Network error. Please check your connection and try again.' : e.message);
+    } finally { setLoading(false); }
   };
 
-  const STATUS_STEPS = ['Ordered', 'Picked up', 'In transit', 'Out for delivery', 'Delivered'];
-  const STATUS_MAP   = {
-    'PICKUP SCHEDULED': 1, 'PICKUP GENERATED': 1,
-    'IN TRANSIT': 2,       'SHIPPED': 2,
-    'OUT FOR DELIVERY': 3,
-    'DELIVERED': 4,
-  };
-  const currentStep = STATUS_MAP[(data?.shipment_status || '').toUpperCase()] ?? 0;
+  // Auto-load: order passed in by the app (after checkout) or from a link
+  // like  /#shipment?order=42  or  /#shipment?awb=123
+  useEffect(() => {
+    const hash   = window.location.hash;
+    const params = new URLSearchParams(hash.includes('?') ? hash.split('?')[1] : '');
+    const awb    = params.get('awb');
+    const order  = initialOrderId || params.get('order');
+    if (order) { setOrderInput(String(order).replace(/\D/g, '')); fetchByOrder(String(order).replace(/\D/g, '')); }
+    else if (awb) { setAwbInput(awb); fetchByAWB(awb); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const currentStep = stepForStatus(data?.shipment_status);
   const isDelivered = currentStep === 4;
 
   return (
@@ -151,11 +168,13 @@ export default function ShipmentPage({ onClose }) {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
                 <div>
-                  <div style={{ fontSize: '.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 4 }}>
-                    Order #{data.order_id || orderInput}
-                  </div>
+                  {data.order_id && (
+                    <div style={{ fontSize: '.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 4 }}>
+                      Order #DNT-{data.order_id}
+                    </div>
+                  )}
                   <div style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-dark)', marginBottom: 4 }}>
-                    AWB: {data.awb_code || '—'}
+                    AWB: {data.awb_code || 'Being assigned'}
                   </div>
                   {data.courier_name && (
                     <div style={{ fontSize: '.8rem', color: 'var(--text-mid)' }}>via {data.courier_name}</div>
@@ -204,6 +223,12 @@ export default function ShipmentPage({ onClose }) {
               </div>
             </div>
 
+            {data.message && (
+              <div style={{ background: 'var(--white)', border: '1px solid var(--border-light)', borderRadius: 10, padding: '1rem', marginBottom: '1rem', fontSize: '.85rem', color: 'var(--text-mid)', lineHeight: 1.6 }}>
+                {data.message}
+              </div>
+            )}
+
             {/* Meta grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: '1rem', marginBottom: '1rem' }}>
               {[
@@ -218,6 +243,13 @@ export default function ShipmentPage({ onClose }) {
                 </div>
               ))}
             </div>
+
+            {data.track_url && (
+              <a href={data.track_url} target="_blank" rel="noopener noreferrer"
+                 style={{ display: 'inline-block', marginBottom: '1rem', fontSize: '.82rem', fontWeight: 700, color: 'var(--primary)' }}>
+                Open courier tracking page →
+              </a>
+            )}
 
             {/* Activity timeline */}
             {data.tracking_data?.length > 0 && (

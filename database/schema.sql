@@ -1,6 +1,6 @@
 -- In MySQL terminal
-CREATE DATABASE dentall_db;
-USE dentall_db;
+-- Hostinger creates the database for you (e.g. u598097533_dentall_db); select it in phpMyAdmin instead.
+
 
 
 

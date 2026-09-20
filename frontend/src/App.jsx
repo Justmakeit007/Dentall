@@ -394,7 +394,7 @@ export default function DentallApp() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         cartItems,                                  // server re-validates these
-        shippingCharge: modalShipping?.charge ?? 0, // server caps this safely
+        pincode: form.pincode,                      // server quotes shipping from this
         couponCode: coupon?.code,                   // server re-validates this too
       }),
     });
@@ -433,7 +433,7 @@ export default function DentallApp() {
         address: form.address,
         pincode: form.pincode,
       },
-      theme: { color: 'var(--primary)' },
+      theme: { color: '#C8102E' },
  
       handler: async (response) => {
         // Step 3 — verify on backend
@@ -455,10 +455,9 @@ export default function DentallApp() {
                 pincode: form.pincode,
               },
               cartItems,
-              shippingCharge: modalShipping?.charge ?? 0,
               couponCode: coupon?.code,
-              // NOTE: totalAmount is NOT sent — server computes it from
-              // cartItems + shippingCharge + couponCode using its own catalogue prices.
+              // NOTE: totalAmount and shippingCharge are NOT sent — the server
+              // computes them from cartItems + pincode + couponCode.
             }),
           });
  

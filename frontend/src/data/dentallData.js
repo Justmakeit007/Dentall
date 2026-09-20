@@ -17,7 +17,6 @@ export const discountPercent = (mrp, price) =>
 // "Leave us a review on Google" button after a review is submitted.
 export const GOOGLE_REVIEW_ENABLED = false;
 export const GOOGLE_PLACE_ID = '';
-// const RAZORPAY_KEY_ID = "rzp_test_SlG1HvlDp3i5Fw"; // ← replace with your key
 
 export const FEATURES = [
   { num:"01", icon:"🦷", title:"Nano Bristle Technology", text:"10,000 micro-filaments per cm² with varying stiffness — hard on plaque, gentle on enamel and gums." },

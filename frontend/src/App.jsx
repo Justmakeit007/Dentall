@@ -3,6 +3,7 @@ import "./styles/index.css";
 import BrushColorShowcase from "./components/BrushColorShowcase";
 import ReviewFormSection from "./components/ReviewFormSection";
 import ShipmentPage from "./components/ShipmentPage";
+import DealerEnquiryModal from "./components/DealerEnquiryModal";
 import videoThumbnail from "./assets/dentall-video-thumbnail1.png";
 import {
   discountPercent,
@@ -44,6 +45,7 @@ export default function DentallApp() {
   const [toast, setToast]   = useState({ show:false, msg:'' });
   const [showVideo, setShowVideo] = useState(false);
   const [showWholesale, setShowWholesale] = useState(false);
+  const [showDealer, setShowDealer] = useState(false);
   const [wholesaleSubmitted, setWholesaleSubmitted] = useState(false);
   const [wholesaleSubmitting, setWholesaleSubmitting] = useState(false);
   const [wholesaleError, setWholesaleError] = useState('');
@@ -610,6 +612,7 @@ export default function DentallApp() {
           <a href="#social"        onClick={e=>{e.preventDefault();scrollTo('social')}}>Reviews</a>
           {/* <a href="#tracking"      onClick={e=>{e.preventDefault();scrollTo('tracking')}}>Track</a> */}
           <a href="#shipment"      onClick={e=>{e.preventDefault();setShipmentOrderId('');setShowShipment(true);}}>Shipment</a>
+          <a href="#dealers"       onClick={e=>{e.preventDefault();setShowDealer(true);}}>Dealers</a>
           <button className="dn-cart-btn" onClick={()=>setCartOpen(o=>!o)}>
             🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
           </button>
@@ -627,6 +630,7 @@ export default function DentallApp() {
         <a href="#social"        onClick={e=>{e.preventDefault();scrollTo('social')}}>Reviews</a>
         {/* <a href="#tracking"      onClick={e=>{e.preventDefault();scrollTo('tracking')}}>Track Order</a> */}
         <a href="#shipment"      onClick={e=>{e.preventDefault();setShipmentOrderId('');setShowShipment(true);setDrawerOpen(false);}}>Shipment</a>
+        <a href="#dealers"       onClick={e=>{e.preventDefault();setShowDealer(true);setDrawerOpen(false);}}>Dealers</a>
         <a href="#order"         onClick={e=>{e.preventDefault();scrollTo('order')}}>Order</a>
         <button className="dn-cart-btn" style={{fontSize:'1rem',padding:'.8rem 2rem'}} onClick={()=>{setDrawerOpen(false);setCartOpen(true);}}>
           🛒 Cart {cartCount > 0 && <span className="dn-cart-badge">{cartCount}</span>}
@@ -1111,6 +1115,8 @@ export default function DentallApp() {
           </div>
         </div>
       )}
+
+      {showDealer && <DealerEnquiryModal onClose={() => setShowDealer(false)} />}
 
       {/* ── Footer ── */}
       <footer className="dn-footer">

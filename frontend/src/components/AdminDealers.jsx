@@ -4,18 +4,18 @@ const inr = n => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const round2 = n => Math.round(n * 100) / 100;
 
 // Preview only — the server recomputes everything and is the source of truth
-function previewQuote({ quantity, goodsTotal, gstPercent, freight, advancePercent }) {
+function previewQuote({ quantity, unitPrice, gstPercent, freight, advancePercent }) {
   const q  = Number(quantity) || 0;
-  const g  = Number(goodsTotal) || 0;
+  const g  = round2((Number(unitPrice) || 0) * q);
   const gst = round2(g * (Number(gstPercent) || 0) / 100);
   const total = round2(g + gst + (Number(freight) || 0));
   const advance = round2(total * (Number(advancePercent) || 0) / 100);
-  return { unit: q > 0 ? round2(g / q) : 0, gst, total, advance, balance: round2(total - advance) };
+  return { goods: g, gst, total, advance, balance: round2(total - advance) };
 }
 
 function QuoteForm({ enquiry, token, onCreated }) {
   const [f, setF] = useState({
-    quantity: enquiry.quantity, goodsTotal: '', gstPercent: 0, freight: 0,
+    quantity: enquiry.quantity, unitPrice: '', gstPercent: 0, freight: 0,
     advancePercent: 0, validDays: 7, notes: '',
   });
   const [saving, setSaving] = useState(false);
@@ -32,7 +32,7 @@ function QuoteForm({ enquiry, token, onCreated }) {
         headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
         body:    JSON.stringify({
           enquiryId: enquiry.id,
-          quantity: Number(f.quantity), goodsTotal: Number(f.goodsTotal),
+          quantity: Number(f.quantity), unitPrice: Number(f.unitPrice),
           gstPercent: Number(f.gstPercent), freight: Number(f.freight),
           advancePercent: Number(f.advancePercent), validDays: Number(f.validDays), notes: f.notes,
         }),
@@ -56,9 +56,9 @@ function QuoteForm({ enquiry, token, onCreated }) {
         <label>Quantity (units)
           <input className="dn-admin-input" type="number" min="1" required value={f.quantity} onChange={set('quantity')} />
         </label>
-        <label>Agreed goods total (₹)
-          <input className="dn-admin-input" type="number" min="1" step="0.01" required placeholder="e.g. 480000"
-            value={f.goodsTotal} onChange={set('goodsTotal')} />
+        <label>Price per unit (₹) for this dealer
+          <input className="dn-admin-input" type="number" min="0.01" step="0.01" required placeholder="e.g. 480"
+            value={f.unitPrice} onChange={set('unitPrice')} />
         </label>
       </div>
       <div className="dn-admin-row">
@@ -82,9 +82,9 @@ function QuoteForm({ enquiry, token, onCreated }) {
           placeholder="Delivery timeline, packing, branding…" />
       </label>
 
-      {Number(f.goodsTotal) > 0 && (
+      {Number(f.unitPrice) > 0 && (
         <div className="dn-admin-preview">
-          {inr(p.unit)}/unit · GST {inr(p.gst)} · <strong>Total {inr(p.total)}</strong>
+          {f.quantity} × {inr(f.unitPrice)} = {inr(p.goods)} · GST {inr(p.gst)} · <strong>Total {inr(p.total)}</strong>
           {Number(f.advancePercent) > 0
             ? ` · advance ${inr(p.advance)}, balance on delivery ${inr(p.balance)}`
             : ' · cash on delivery'}

@@ -1796,7 +1796,10 @@ app.post('/api/admin/dealer-quotes', adminAuthMiddleware, async (req, res) => {
   const b = req.body || {};
   const enquiryId      = safeInt(b.enquiryId, 0);
   const quantity       = safeInt(b.quantity, 0, 1000000);
-  const goodsTotal     = round2(Number(b.goodsTotal));
+  // The admin enters the price PER UNIT (each dealer can get a different one);
+  // the goods total for the whole order is derived from it.
+  const unitPrice      = round2(Number(b.unitPrice));
+  const goodsTotal     = round2(unitPrice * quantity);
   const gstPercent     = round2(Number(b.gstPercent || 0));
   const freight        = round2(Number(b.freight || 0));
   const advancePercent = round2(Number(b.advancePercent || 0));
@@ -1805,8 +1808,9 @@ app.post('/api/admin/dealer-quotes', adminAuthMiddleware, async (req, res) => {
 
   if (!enquiryId)                                           return res.status(400).json({ error: 'Unknown enquiry.' });
   if (quantity < 1)                                         return res.status(400).json({ error: 'Quantity must be at least 1.' });
-  if (!Number.isFinite(goodsTotal) || goodsTotal <= 0 || goodsTotal > 10000000)
-                                                            return res.status(400).json({ error: 'Goods total must be between ₹1 and ₹1,00,00,000.' });
+  if (!Number.isFinite(unitPrice) || unitPrice <= 0 || unitPrice > 100000)
+                                                            return res.status(400).json({ error: 'Price per unit must be between ₹0.01 and ₹1,00,000.' });
+  if (goodsTotal > 10000000)                                return res.status(400).json({ error: 'Goods total cannot exceed ₹1,00,00,000 — check the quantity and price per unit.' });
   if (!Number.isFinite(gstPercent) || gstPercent < 0 || gstPercent > 28)
                                                             return res.status(400).json({ error: 'GST % must be between 0 and 28.' });
   if (!Number.isFinite(freight) || freight < 0 || freight > 1000000)

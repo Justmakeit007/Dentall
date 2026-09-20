@@ -26,6 +26,8 @@
 //    YOUR_PINCODE              — your warehouse/pickup pincode
 //    SHIPROCKET_EMAIL          — (required only when USE_MOCK_SHIPROCKET=false)
 //    SHIPROCKET_PASSWORD       — (required only when USE_MOCK_SHIPROCKET=false)
+//    SHIPROCKET_PASSWORD_B64   — optional: base64 of the password, used instead of SHIPROCKET_PASSWORD
+//                                when the password has special characters ($ # & ! ^)
 //    SITE_URL                  — your public site URL for email links
 //    DENTALL_ADMIN_SECRET      — secret for the /admin panel (x-admin-token header)
 //
@@ -67,10 +69,24 @@ const ALWAYS_REQUIRED = [
   'DENTALL_ADMIN_SECRET',
 ];
 
-// Shiprocket creds only needed in real mode
+// Shiprocket creds only needed in real mode. The password may be supplied either
+// as SHIPROCKET_PASSWORD or, when it contains characters hosting panels mangle
+// ($ # & ! ^ ...), base64-encoded as SHIPROCKET_PASSWORD_B64.
 const USE_MOCK = process.env.USE_MOCK_SHIPROCKET === 'true';
 if (!USE_MOCK) {
-  ALWAYS_REQUIRED.push('SHIPROCKET_EMAIL', 'SHIPROCKET_PASSWORD');
+  ALWAYS_REQUIRED.push('SHIPROCKET_EMAIL');
+  if (!process.env.SHIPROCKET_PASSWORD_B64) ALWAYS_REQUIRED.push('SHIPROCKET_PASSWORD');
+}
+
+function getShiprocketCredentials() {
+  const b64 = (process.env.SHIPROCKET_PASSWORD_B64 || '').trim();
+  return {
+    email:    (process.env.SHIPROCKET_EMAIL || '').trim(),
+    password: b64
+      ? Buffer.from(b64, 'base64').toString('utf8')
+      : (process.env.SHIPROCKET_PASSWORD || '').trim(),
+    source:   b64 ? 'SHIPROCKET_PASSWORD_B64' : 'SHIPROCKET_PASSWORD',
+  };
 }
 
 const missingEnv = ALWAYS_REQUIRED.filter(k => !process.env[k]);
@@ -86,6 +102,12 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 console.log(`\n🚀 DENTALL server booting...`);
 console.log(`   Mode:     ${IS_PROD ? '🔴 PRODUCTION' : '🟡 DEVELOPMENT'}`);
 console.log(`   Shipping: ${USE_MOCK ? '🧪 MOCK Shiprocket' : '✅ REAL Shiprocket'}`);
+if (!USE_MOCK) {
+  // Length only — never log the password itself. Helps spot values that a
+  // hosting panel truncated or altered (e.g. cut at a "#").
+  const c = getShiprocketCredentials();
+  console.log(`   Shiprocket login: ${c.email.replace(/(.{2}).+(@.+)/, '$1****$2')} | password from ${c.source}, ${c.password.length} chars`);
+}
 console.log(`   Origin:   ${process.env.ALLOWED_ORIGIN}\n`);
 
 // ============================================================
@@ -411,14 +433,21 @@ let tokenExpiry      = 0;
 
 async function getShiprocketToken() {
   if (shiprocketToken && Date.now() < tokenExpiry) return shiprocketToken;
-  const { data } = await axios.post(
-    'https://apiv2.shiprocket.in/v1/external/auth/login',
-    {
-      email:    process.env.SHIPROCKET_EMAIL,
-      password: process.env.SHIPROCKET_PASSWORD,
-    },
-    { timeout: 10000 }
-  );
+  const { email, password } = getShiprocketCredentials();
+  let data;
+  try {
+    ({ data } = await axios.post(
+      'https://apiv2.shiprocket.in/v1/external/auth/login',
+      { email, password },
+      { timeout: 10000 }
+    ));
+  } catch (e) {
+    if (e.response?.status === 403 || e.response?.status === 401) {
+      console.error('❌ Shiprocket login rejected — check SHIPROCKET_EMAIL and the API user password ' +
+        '(if it has special characters, set SHIPROCKET_PASSWORD_B64 instead)');
+    }
+    throw e;
+  }
   shiprocketToken = data.token;
   tokenExpiry     = Date.now() + 9 * 24 * 60 * 60 * 1000; // 9 days (token lasts 10)
   return shiprocketToken;

@@ -5,6 +5,7 @@ import ReviewFormSection from "./components/ReviewFormSection";
 import ShipmentPage from "./components/ShipmentPage";
 import videoThumbnail from "./assets/dentall-video-thumbnail1.png";
 import {
+  cartWeightKg,
   discountPercent,
   FAMILY_PACK_MRP,
   FAMILY_PACK_PRICE,
@@ -341,7 +342,7 @@ export default function DentallApp() {
     if (!pincode || pincode.length !== 6) return;
     setShippingLoading(true);
     try {
-      const totalWeight = cartItems.reduce((sum, item) => sum + (item.qty * 0.5), 0); // 0.5kg per brush
+      const totalWeight = cartWeightKg(cartItems); // 0.25kg per pack, min 0.5kg
       const res  = await fetch('/api/shipping-cost', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
@@ -363,7 +364,7 @@ export default function DentallApp() {
   if (!pin || pin.length !== 6) return;
   setModalShipLoading(true);
   try {
-    const totalWeight = cartItems.reduce((sum, item) => sum + (item.qty * 0.5), 0); // 0.5kg per brush
+    const totalWeight = cartWeightKg(cartItems); // 0.25kg per pack, min 0.5kg
     const res = await fetch('/api/shipping-cost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

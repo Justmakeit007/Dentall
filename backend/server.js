@@ -516,17 +516,21 @@ async function getShippingQuote(pincode, weight) {
   }
 }
 
-// 0.5 kg per brush unit, minimum 0.5 kg (matches the frontend + Shiprocket order)
-const cartWeight = cartItems => Math.max(0.5, cartItems.reduce((s, i) => s + i.qty * 0.5, 0));
+// Shipping weight — ⚠️ keep in sync with UNIT_WEIGHT_KG / MIN_SHIPMENT_WEIGHT_KG in
+// frontend/src/data/dentallData.js so the quote shown equals the amount charged.
+// One family pack ≈ 0.25 kg (2 packs = 0.5 kg); Shiprocket minimum is 0.5 kg.
+const UNIT_WEIGHT_KG         = 0.25;
+const MIN_SHIPMENT_WEIGHT_KG = 0.5;
+const cartWeight = cartItems =>
+  Math.max(MIN_SHIPMENT_WEIGHT_KG, cartItems.reduce((s, i) => s + i.qty * UNIT_WEIGHT_KG, 0));
 
 // ── REAL Shiprocket order creation (3-step: create → courier → AWB) ──
 async function createShiprocketOrder({ orderId, customer, cartItems, totalAmount }) {
   const token   = await getShiprocketToken();
   const headers = { Authorization: `Bearer ${token}` };
 
-  // 0.5 kg per brush unit, minimum 0.5 kg
   const totalQty    = cartItems.reduce((s, i) => s + i.qty, 0);
-  const totalWeight = Math.max(0.5, cartItems.reduce((s, i) => s + i.qty * 0.5, 0));
+  const totalWeight = cartWeight(cartItems);
 
   const items = cartItems.map(i => ({
     name:          i.name,

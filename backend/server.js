@@ -402,6 +402,47 @@ db.getConnection()
     }
     console.log(`✅ coupons table ready, ${couponRows.length} coupon(s) loaded`);
 
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS dealer_enquiries (
+        id            INT AUTO_INCREMENT PRIMARY KEY,
+        contact_name  VARCHAR(150) NOT NULL,
+        shop_name     VARCHAR(180) NOT NULL,
+        gstin         VARCHAR(15)  NOT NULL,
+        email         VARCHAR(150) NOT NULL,
+        phone         VARCHAR(20)  NOT NULL,
+        address       TEXT         NOT NULL,
+        city          VARCHAR(100) NOT NULL,
+        state         VARCHAR(100) NOT NULL,
+        pincode       VARCHAR(6)   NOT NULL,
+        quantity      INT          NOT NULL,
+        message       TEXT,
+        status        VARCHAR(30)  DEFAULT 'new',
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_dealer_email   (email),
+        INDEX idx_dealer_status  (status),
+        INDEX idx_dealer_created (created_at)
+      )
+    `);
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS dealer_quotes (
+        id              INT AUTO_INCREMENT PRIMARY KEY,
+        enquiry_id      INT           NOT NULL,
+        token           CHAR(64)      NOT NULL,
+        quantity        INT           NOT NULL,
+        goods_total     DECIMAL(12,2) NOT NULL,
+        gst_percent     DECIMAL(5,2)  NOT NULL DEFAULT 0,
+        freight         DECIMAL(10,2) NOT NULL DEFAULT 0,
+        advance_percent DECIMAL(5,2)  NOT NULL DEFAULT 0,
+        notes           TEXT,
+        valid_until     DATE          NOT NULL,
+        status          VARCHAR(20)   NOT NULL DEFAULT 'sent',
+        created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_quote_token (token),
+        INDEX idx_quote_enquiry (enquiry_id)
+      )
+    `);
+    console.log('✅ dealer_enquiries + dealer_quotes tables ready');
+
     // Older installs may not have these columns yet — add them defensively
     for (const stmt of [
       'ALTER TABLE orders ADD COLUMN coupon_code VARCHAR(30) NULL',
@@ -1550,6 +1591,317 @@ app.post('/api/wholesale-enquiries', leadLimiter, async (req, res) => {
   } catch (e) {
     console.error('Wholesale enquiry failed:', e.message);
     res.status(500).json({ error: 'Could not save wholesale enquiry. Please try again.' });
+  }
+});
+
+// ============================================================
+//  DEALER ENQUIRIES & QUOTES  (Phase 1)
+//  Dealer submits an enquiry -> admin creates a custom-priced quote ->
+//  dealer receives a private, unguessable link that shows that quote.
+//  Quote prices live ONLY in the dealer_quotes table (set by the admin);
+//  nothing a dealer's browser sends can change them.
+// ============================================================
+const GSTIN_RE       = /^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/;
+const DEALER_MIN_QTY = 100;
+const round2         = n => Math.round(n * 100) / 100;
+const inr            = n => `₹${Number(n).toLocaleString('en-IN')}`;
+
+// All quote money maths in one place (admin preview, DB read-back, emails)
+function computeDealerQuote({ quantity, goodsTotal, gstPercent, freight, advancePercent }) {
+  const gstAmount     = round2(goodsTotal * gstPercent / 100);
+  const total         = round2(goodsTotal + gstAmount + freight);
+  const advanceAmount = round2(total * advancePercent / 100);
+  return {
+    unitPrice: round2(goodsTotal / quantity),
+    goodsTotal, gstPercent, gstAmount, freight, total,
+    advancePercent, advanceAmount,
+    balanceDue: round2(total - advanceAmount),
+  };
+}
+
+// Columns every quote SELECT needs (valid_until formatted so timezones can't shift the date)
+const QUOTE_COLS = `id, enquiry_id, token, quantity, goods_total, gst_percent, freight, advance_percent,
+  notes, DATE_FORMAT(valid_until, '%Y-%m-%d') AS valid_until, status, created_at`;
+
+function formatQuoteRow(row) {
+  const calc = computeDealerQuote({
+    quantity:       Number(row.quantity),
+    goodsTotal:     Number(row.goods_total),
+    gstPercent:     Number(row.gst_percent),
+    freight:        Number(row.freight),
+    advancePercent: Number(row.advance_percent),
+  });
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    id:         row.id,
+    quantity:   Number(row.quantity),
+    ...calc,
+    notes:      row.notes || '',
+    validUntil: row.valid_until,
+    status:     row.status === 'sent' && row.valid_until < today ? 'expired' : row.status,
+    createdAt:  row.created_at,
+  };
+}
+
+const paymentTermsText = q =>
+  q.advancePercent > 0
+    ? `${q.advancePercent}% advance (${inr(q.advanceAmount)}), balance ${inr(q.balanceDue)} on delivery`
+    : `Cash on delivery (${inr(q.total)})`;
+
+async function sendDealerEnquiryEmails(e) {
+  const notify = process.env.ADMIN_NOTIFY_EMAIL || process.env.EMAIL_FROM;
+  await sendDentallMail({
+    from:    `DENTALL Dealers <${process.env.EMAIL_FROM}>`,
+    to:      notify,
+    subject: `New dealer enquiry — ${e.shop} (${e.quantity} units)`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px">
+        <h2 style="color:#C8102E;margin:0 0 12px">New dealer enquiry</h2>
+        <p><strong>${e.shop}</strong> — ${e.name}<br>
+           GSTIN: ${e.gstin}<br>
+           Phone: ${e.phone} · Email: ${e.email}<br>
+           ${e.address}, ${e.city}, ${e.state} - ${e.pincode}</p>
+        <p>Quantity wanted: <strong>${e.quantity}</strong> units</p>
+        ${e.message ? `<p>Message: ${e.message}</p>` : ''}
+        <p style="color:#666;font-size:12px">Open /admin to create a quote.</p>
+      </div>`,
+  });
+
+  if (!isValidEmail(e.email)) return;
+  await sendDentallMail({
+    from:    `DENTALL Dealers <${process.env.EMAIL_FROM}>`,
+    to:      e.email,
+    subject: 'We received your DENTALL dealer enquiry',
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto">
+        <div style="background:#C8102E;color:#fff;padding:22px;border-radius:10px 10px 0 0">
+          <h1 style="margin:0;font-size:22px">DENTALL Dealers</h1>
+          <p style="margin:6px 0 0">Enquiry received</p>
+        </div>
+        <div style="border:1px solid #eee;border-top:0;padding:22px;color:#333;line-height:1.7">
+          <p>Hi ${e.name},</p>
+          <p>Thanks for your enquiry for <strong>${e.quantity}</strong> units for <strong>${e.shop}</strong>.
+             Our team will send you a price quote by email within 24 hours.</p>
+          <p style="font-size:12px;color:#777">Questions? Reply to this email or write to support@dentall.in</p>
+        </div>
+      </div>`,
+  });
+}
+
+async function sendDealerQuoteEmail(enquiry, quote, link) {
+  if (!isValidEmail(enquiry.email)) return;
+  await sendDentallMail({
+    from:    `DENTALL Dealers <${process.env.EMAIL_FROM}>`,
+    to:      enquiry.email,
+    subject: `Your DENTALL quote — ${quote.quantity} units (${inr(quote.total)})`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto">
+        <div style="background:#C8102E;color:#fff;padding:22px;border-radius:10px 10px 0 0">
+          <h1 style="margin:0;font-size:22px">DENTALL Dealers</h1>
+          <p style="margin:6px 0 0">Your price quote is ready</p>
+        </div>
+        <div style="border:1px solid #eee;border-top:0;padding:22px;color:#333;line-height:1.7">
+          <p>Hi ${enquiry.contact_name},</p>
+          <p>Here is your quote for <strong>${enquiry.shop_name}</strong>:</p>
+          <table style="width:100%;border-collapse:collapse;font-size:14px">
+            <tr><td>Quantity</td><td style="text-align:right">${quote.quantity} units</td></tr>
+            <tr><td>Price per unit</td><td style="text-align:right">${inr(quote.unitPrice)}</td></tr>
+            <tr><td>Goods total</td><td style="text-align:right">${inr(quote.goodsTotal)}</td></tr>
+            ${quote.gstPercent > 0 ? `<tr><td>GST (${quote.gstPercent}%)</td><td style="text-align:right">${inr(quote.gstAmount)}</td></tr>` : ''}
+            <tr><td>Freight</td><td style="text-align:right">${quote.freight > 0 ? inr(quote.freight) : 'Included / as agreed'}</td></tr>
+            <tr style="font-weight:bold;border-top:2px solid #C8102E"><td style="padding-top:8px">Total</td><td style="text-align:right;padding-top:8px">${inr(quote.total)}</td></tr>
+          </table>
+          <p><strong>Payment:</strong> ${paymentTermsText(quote)}<br>
+             <strong>Valid until:</strong> ${quote.validUntil}</p>
+          ${quote.notes ? `<p><strong>Notes:</strong> ${quote.notes}</p>` : ''}
+          <p style="text-align:center;margin:22px 0">
+            <a href="${link}" style="background:#C8102E;color:#fff;text-decoration:none;padding:12px 28px;border-radius:24px;font-weight:bold;display:inline-block">View your quote →</a>
+          </p>
+          <p style="font-size:12px;color:#777">To confirm this order, reply to this email or call us. This link is private — please don't share it.</p>
+        </div>
+      </div>`,
+  });
+}
+
+// ── Public: dealer submits an enquiry ──
+app.post('/api/dealer-enquiries', leadLimiter, async (req, res) => {
+  const b = req.body || {};
+  const e = {
+    name:     sanitizeStr(b.name, 150),
+    shop:     sanitizeStr(b.shop, 180),
+    gstin:    sanitizeStr(b.gstin, 15).toUpperCase(),
+    email:    sanitizeStr(b.email, 150).toLowerCase(),
+    phone:    sanitizePhone(b.phone),
+    address:  sanitizeStr(b.address, 500),
+    city:     sanitizeStr(b.city, 100),
+    state:    sanitizeStr(b.state, 100),
+    pincode:  sanitizePincode(b.pincode),
+    quantity: safeInt(b.quantity, 0, 1000000),
+    message:  sanitizeStr(b.message, 1000),
+  };
+
+  if (!e.name)                       return res.status(400).json({ error: 'Contact name is required.' });
+  if (!e.shop)                       return res.status(400).json({ error: 'Shop / business name is required.' });
+  if (!GSTIN_RE.test(e.gstin))       return res.status(400).json({ error: 'Enter a valid 15-character GSTIN.' });
+  if (!isValidEmail(e.email))        return res.status(400).json({ error: 'Valid email address is required.' });
+  if (!isValidPhone(e.phone))        return res.status(400).json({ error: 'Valid 10-digit mobile number is required.' });
+  if (!e.address)                    return res.status(400).json({ error: 'Shop address is required.' });
+  if (!e.city || !e.state)           return res.status(400).json({ error: 'City and state are required.' });
+  if (!isValidPincode(e.pincode))    return res.status(400).json({ error: 'Valid 6-digit pincode is required.' });
+  if (e.quantity < DEALER_MIN_QTY)   return res.status(400).json({ error: `Minimum dealer quantity is ${DEALER_MIN_QTY} units.` });
+
+  try {
+    const [result] = await db.execute(
+      `INSERT INTO dealer_enquiries
+       (contact_name, shop_name, gstin, email, phone, address, city, state, pincode, quantity, message)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [e.name, e.shop, e.gstin, e.email, e.phone, e.address, e.city, e.state, e.pincode, e.quantity, e.message]
+    );
+    console.log(`✅ Dealer enquiry saved: id=${result.insertId} (${e.quantity} units)`);
+    sendDealerEnquiryEmails(e).catch(err => console.error('⚠️  Dealer enquiry email failed:', err.message));
+    res.json({ success: true, enquiryId: result.insertId });
+  } catch (err) {
+    console.error('Dealer enquiry failed:', err.message);
+    res.status(500).json({ error: 'Could not save your enquiry. Please try again.' });
+  }
+});
+
+// ── Admin: list enquiries with their quotes ──
+app.get('/api/admin/dealer-enquiries', adminAuthMiddleware, async (req, res) => {
+  try {
+    const [enquiries] = await db.execute(
+      `SELECT id, contact_name, shop_name, gstin, email, phone, address, city, state, pincode,
+              quantity, message, status, created_at
+       FROM dealer_enquiries ORDER BY created_at DESC LIMIT 200`
+    );
+    const [quotes] = await db.execute(
+      `SELECT ${QUOTE_COLS} FROM dealer_quotes ORDER BY created_at DESC`
+    );
+    const byEnquiry = {};
+    for (const row of quotes) {
+      (byEnquiry[row.enquiry_id] ||= []).push({
+        ...formatQuoteRow(row),
+        link: `${process.env.SITE_URL}/dealer-quote/${row.token}`,
+      });
+    }
+    res.json(enquiries.map(e => ({ ...e, quotes: byEnquiry[e.id] || [] })));
+  } catch (err) {
+    console.error('Dealer enquiries list failed:', err.message);
+    res.status(500).json({ error: 'Could not load dealer enquiries.' });
+  }
+});
+
+// ── Admin: create a custom-priced quote and email the private link ──
+app.post('/api/admin/dealer-quotes', adminAuthMiddleware, async (req, res) => {
+  const b = req.body || {};
+  const enquiryId      = safeInt(b.enquiryId, 0);
+  const quantity       = safeInt(b.quantity, 0, 1000000);
+  const goodsTotal     = round2(Number(b.goodsTotal));
+  const gstPercent     = round2(Number(b.gstPercent || 0));
+  const freight        = round2(Number(b.freight || 0));
+  const advancePercent = round2(Number(b.advancePercent || 0));
+  const validDays      = safeInt(b.validDays || 7, 1, 60);
+  const notes          = sanitizeStr(b.notes, 1000);
+
+  if (!enquiryId)                                           return res.status(400).json({ error: 'Unknown enquiry.' });
+  if (quantity < 1)                                         return res.status(400).json({ error: 'Quantity must be at least 1.' });
+  if (!Number.isFinite(goodsTotal) || goodsTotal <= 0 || goodsTotal > 10000000)
+                                                            return res.status(400).json({ error: 'Goods total must be between ₹1 and ₹1,00,00,000.' });
+  if (!Number.isFinite(gstPercent) || gstPercent < 0 || gstPercent > 28)
+                                                            return res.status(400).json({ error: 'GST % must be between 0 and 28.' });
+  if (!Number.isFinite(freight) || freight < 0 || freight > 1000000)
+                                                            return res.status(400).json({ error: 'Freight must be between ₹0 and ₹10,00,000.' });
+  if (!Number.isFinite(advancePercent) || advancePercent < 0 || advancePercent > 100)
+                                                            return res.status(400).json({ error: 'Advance % must be between 0 and 100.' });
+
+  try {
+    const [found] = await db.execute(
+      'SELECT id, contact_name, shop_name, email FROM dealer_enquiries WHERE id = ? LIMIT 1', [enquiryId]
+    );
+    if (!found.length) return res.status(404).json({ error: 'Enquiry not found.' });
+    const enquiry = found[0];
+
+    const token = crypto.randomBytes(32).toString('hex'); // 256-bit, unguessable
+    const [result] = await db.execute(
+      `INSERT INTO dealer_quotes
+       (enquiry_id, token, quantity, goods_total, gst_percent, freight, advance_percent, notes, valid_until, status)
+       VALUES (?,?,?,?,?,?,?,?, DATE_ADD(CURDATE(), INTERVAL ? DAY), 'sent')`,
+      [enquiryId, token, quantity, goodsTotal, gstPercent, freight, advancePercent, notes, validDays]
+    );
+    await db.execute(`UPDATE dealer_enquiries SET status = 'quoted' WHERE id = ? AND status = 'new'`, [enquiryId]);
+
+    const [rows] = await db.execute(`SELECT ${QUOTE_COLS} FROM dealer_quotes WHERE id = ?`, [result.insertId]);
+    const quote  = formatQuoteRow(rows[0]);
+    const link   = `${process.env.SITE_URL}/dealer-quote/${token}`;
+
+    let emailed = true;
+    try { await sendDealerQuoteEmail(enquiry, quote, link); }
+    catch (mailErr) { emailed = false; console.error('⚠️  Dealer quote email failed:', mailErr.message); }
+
+    console.log(`✅ Dealer quote created: id=${result.insertId} enquiry=${enquiryId} total=${inr(quote.total)}`);
+    res.json({ success: true, quote: { ...quote, link }, emailed });
+  } catch (err) {
+    console.error('Dealer quote creation failed:', err.message);
+    res.status(500).json({ error: 'Could not create the quote.' });
+  }
+});
+
+// ── Admin: cancel a quote (its link stops working) / close an enquiry ──
+app.post('/api/admin/dealer-quotes/:id/cancel', adminAuthMiddleware, async (req, res) => {
+  const id = safeInt(req.params.id, 0);
+  if (!id) return res.status(400).json({ error: 'Invalid quote ID' });
+  try {
+    await db.execute(`UPDATE dealer_quotes SET status = 'cancelled' WHERE id = ?`, [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not cancel the quote.' });
+  }
+});
+
+app.post('/api/admin/dealer-enquiries/:id/status', adminAuthMiddleware, async (req, res) => {
+  const id     = safeInt(req.params.id, 0);
+  const status = String(req.body?.status || '');
+  if (!id || !['new', 'quoted', 'closed'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid request' });
+  }
+  try {
+    await db.execute('UPDATE dealer_enquiries SET status = ? WHERE id = ?', [status, id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not update the enquiry.' });
+  }
+});
+
+// ── Public: dealer opens their private quote link ──
+app.get('/api/dealer-quote/:token', shippingLimiter, async (req, res) => {
+  const token = String(req.params.token || '');
+  if (!/^[a-f0-9]{64}$/.test(token)) return res.status(404).json({ error: 'Quote not found.' });
+
+  try {
+    const [rows] = await db.execute(
+      `SELECT q.id, q.enquiry_id, q.token, q.quantity, q.goods_total, q.gst_percent, q.freight,
+              q.advance_percent, q.notes, DATE_FORMAT(q.valid_until, '%Y-%m-%d') AS valid_until,
+              q.status, q.created_at, e.shop_name, e.contact_name, e.city, e.state
+       FROM dealer_quotes q JOIN dealer_enquiries e ON e.id = q.enquiry_id
+       WHERE q.token = ? LIMIT 1`,
+      [token]
+    );
+    if (!rows.length || rows[0].status === 'cancelled') {
+      return res.status(404).json({ error: 'This quote is no longer available. Please contact us.' });
+    }
+    const row = rows[0];
+    res.set('Cache-Control', 'no-store');
+    res.json({
+      shopName:    row.shop_name,
+      contactName: row.contact_name,
+      city:        row.city,
+      state:       row.state,
+      quote:       formatQuoteRow(row),
+      paymentTerms: paymentTermsText(formatQuoteRow(row)),
+    });
+  } catch (err) {
+    console.error('Dealer quote fetch failed:', err.message);
+    res.status(500).json({ error: 'Could not load this quote.' });
   }
 });
 

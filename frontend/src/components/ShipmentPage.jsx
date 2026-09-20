@@ -15,6 +15,9 @@ function stepForStatus(status) {
   return 0;
 }
 
+// Customers see "DNT-2" on their receipt — accept that or just "2"
+const orderNumber = v => String(v || '').replace(/\D/g, '');
+
 // Read the server's error message instead of showing a misleading generic one
 async function readError(res, fallback) {
   const body = await res.json().catch(() => ({}));
@@ -28,8 +31,9 @@ export default function ShipmentPage({ onClose, initialOrderId = '' }) {
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
 
-  const fetchByOrder = async (id) => {
-    if (!id) return;
+  const fetchByOrder = async (raw) => {
+    const id = orderNumber(raw);
+    if (!id) { setError('Enter your order ID, for example DNT-2.'); return; }
     setLoading(true); setError(''); setData(null);
     try {
       const res = await fetch(`/api/track/${encodeURIComponent(id)}`);
@@ -59,7 +63,7 @@ export default function ShipmentPage({ onClose, initialOrderId = '' }) {
     const params = new URLSearchParams(hash.includes('?') ? hash.split('?')[1] : '');
     const awb    = params.get('awb');
     const order  = initialOrderId || params.get('order');
-    if (order) { setOrderInput(String(order).replace(/\D/g, '')); fetchByOrder(String(order).replace(/\D/g, '')); }
+    if (orderNumber(order)) { setOrderInput(`DNT-${orderNumber(order)}`); fetchByOrder(order); }
     else if (awb) { setAwbInput(awb); fetchByAWB(awb); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -105,15 +109,15 @@ export default function ShipmentPage({ onClose, initialOrderId = '' }) {
               <div style={{ display: 'flex', gap: '.5rem' }}>
                 <input
                   value={orderInput}
-                  onChange={e => setOrderInput(e.target.value.replace(/\D/g, ''))}
-                  placeholder="e.g. 42"
+                  onChange={e => setOrderInput(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 20))}
+                  placeholder="e.g. DNT-42"
                   onKeyDown={e => e.key === 'Enter' && fetchByOrder(orderInput)}
                   style={{ flex: 1, background: 'var(--off-white)', border: '1.5px solid var(--border-mid)', color: 'var(--text-dark)', padding: '.65rem .9rem', fontFamily: "'DM Sans',sans-serif", fontSize: '.86rem', borderRadius: 8, outline: 'none' }}
                 />
                 <button
                   onClick={() => fetchByOrder(orderInput)}
-                  disabled={loading || !orderInput}
-                  style={{ background: 'linear-gradient(135deg,var(--primary),var(--primary-dark))', color: '#fff', border: 'none', padding: '.65rem 1rem', borderRadius: 8, fontFamily: "'DM Sans',sans-serif", fontSize: '.78rem', fontWeight: 700, cursor: 'pointer', opacity: (!orderInput || loading) ? 0.5 : 1 }}>
+                  disabled={loading || !orderNumber(orderInput)}
+                  style={{ background: 'linear-gradient(135deg,var(--primary),var(--primary-dark))', color: '#fff', border: 'none', padding: '.65rem 1rem', borderRadius: 8, fontFamily: "'DM Sans',sans-serif", fontSize: '.78rem', fontWeight: 700, cursor: 'pointer', opacity: (!orderNumber(orderInput) || loading) ? 0.5 : 1 }}>
                   Track
                 </button>
               </div>

@@ -817,6 +817,7 @@ export default function DentallApp() {
               src="https://www.youtube.com/embed/y7_2sUZiBbc?autoplay=1&rel=0&modestbranding=1"
               title="Dentall Product Video"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
               allowFullScreen
             />
           ) : (

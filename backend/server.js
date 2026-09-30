@@ -213,6 +213,8 @@ if (IS_PROD) app.set('trust proxy', 1);
 // Helmet — sets secure HTTP headers
 app.use(helmet({
   contentSecurityPolicy: IS_PROD ? undefined : false, // relax CSP in dev
+  // YouTube embeds require a Referer (else "Error 153"); helmet's default is no-referrer
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
 
 // CORS — strict origin whitelist (supports comma-separated ALLOWED_ORIGIN)
